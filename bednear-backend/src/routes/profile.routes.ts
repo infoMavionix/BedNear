@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 import authMiddleware from "../middleware/auth.middleware";
 import {
@@ -8,7 +9,7 @@ import {
 
 const router = Router();
 
-// All profile endpoints require a valid JWT.
+// Every profile endpoint requires authentication.
 router.use(authMiddleware);
 
 router.get("/", getProfile);
