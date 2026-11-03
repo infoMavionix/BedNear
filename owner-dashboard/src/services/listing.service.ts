@@ -1,4 +1,3 @@
-
 import { api } from "./api";
 
 export type ListingStatus =
@@ -19,6 +18,8 @@ export interface ListingInput {
   genderPolicy?: string;
   monthlyRent?: number | null;
   deposit?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
   status?: ListingStatus;
 }
 
@@ -35,6 +36,8 @@ export interface Listing {
   genderPolicy: string;
   monthlyRent: number | null;
   deposit: number | null;
+  latitude: number | null;
+  longitude: number | null;
   status: ListingStatus;
   ownerId: string;
   createdAt: string;
@@ -60,11 +63,36 @@ export interface Listing {
   }>;
 }
 
+function validateCoordinates(data: {
+  latitude?: number | null;
+  longitude?: number | null;
+}) {
+  const { latitude, longitude } = data;
+
+  if ((latitude == null) !== (longitude == null)) {
+    throw new Error("Enter both latitude and longitude.");
+  }
+
+  if (
+    latitude != null &&
+    (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)
+  ) {
+    throw new Error("Latitude must be between -90 and 90.");
+  }
+
+  if (
+    longitude != null &&
+    (!Number.isFinite(longitude) ||
+      longitude < -180 ||
+      longitude > 180)
+  ) {
+    throw new Error("Longitude must be between -180 and 180.");
+  }
+}
+
 export const listingService = {
   async getAll() {
-    const response = await api.get<{ listings: Listing[] }>(
-      "/listings"
-    );
+    const response = await api.get<{ listings: Listing[] }>("/listings");
     return response.data.listings;
   },
 
@@ -76,6 +104,8 @@ export const listingService = {
   },
 
   async create(data: ListingInput) {
+    validateCoordinates(data);
+
     const response = await api.post<{ listing: Listing }>(
       "/listings",
       data
@@ -83,7 +113,18 @@ export const listingService = {
     return response.data.listing;
   },
 
+    async submitForReview(id: string) {
+    const response = await api.patch<{
+      message: string;
+      listing: Listing;
+    }>(`/listings/${encodeURIComponent(id)}/submit`);
+
+    return response.data;
+  },
+
   async update(id: string, data: Partial<ListingInput>) {
+    validateCoordinates(data);
+
     const response = await api.patch<{ listing: Listing }>(
       `/listings/${id}`,
       data

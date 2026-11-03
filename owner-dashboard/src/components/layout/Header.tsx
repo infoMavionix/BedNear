@@ -1,4 +1,4 @@
-
+﻿
 import { Bell, Search } from "lucide-react";
 
 type OwnerUser = {
@@ -12,7 +12,7 @@ export default function Header() {
   let owner: OwnerUser = {};
 
   try {
-    const savedUser = localStorage.getItem("bednear_user");
+    const savedUser = sessionStorage.getItem("bednear_user");
 
     if (savedUser) {
       owner = JSON.parse(savedUser) as OwnerUser;
@@ -63,3 +63,4 @@ export default function Header() {
     </header>
   );
 }
+

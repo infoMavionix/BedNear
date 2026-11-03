@@ -1,4 +1,4 @@
-
+﻿
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -25,9 +25,9 @@ export default function Sidebar() {
   const navigate = useNavigate();
 
   function handleLogout() {
-    localStorage.removeItem("jwt");
-    localStorage.removeItem("bednear_token");
-    localStorage.removeItem("bednear_user");
+    sessionStorage.removeItem("jwt");
+    sessionStorage.removeItem("bednear_token");
+    sessionStorage.removeItem("bednear_user");
 
     navigate("/login", { replace: true });
   }
@@ -81,3 +81,4 @@ export default function Sidebar() {
     </aside>
   );
 }
+

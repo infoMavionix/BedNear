@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import prisma from "../config/prisma";
+import { prisma } from "../config/prisma";
 import { AuthenticatedRequest } from "../middleware/auth.middleware";
 import { asyncHandler } from "../utils/async-handler";
 

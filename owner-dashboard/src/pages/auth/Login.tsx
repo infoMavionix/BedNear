@@ -1,10 +1,6 @@
 ﻿
 import { useState, type FormEvent } from "react";
-import {
-  Link,
-  useNavigate,
-  useLocation,
-} from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   Eye,
   EyeOff,
@@ -13,20 +9,32 @@ import {
   Building2,
 } from "lucide-react";
 import axios from "axios";
+
 import { api } from "../../services/api";
+import { updatePageTitle } from "../../utils/updatePageTitle";
+
+type UserRole = "ADMIN" | "OWNER" | "CANDIDATE";
 
 type LoginResponse = {
+  message: string;
   token: string;
   user: {
     id: string;
     name: string;
     email: string;
+    role: UserRole;
+    isActive?: boolean;
+    phone?: string | null;
+    businessName?: string | null;
   };
 };
 
 type LoginLocationState = {
   registered?: boolean;
   email?: string;
+  from?: {
+    pathname?: string;
+  };
 };
 
 export default function Login() {
@@ -50,35 +58,67 @@ export default function Login() {
     setError("");
     setLoading(true);
 
+    // Clear any previous account session before signing in.
+    sessionStorage.removeItem("bednear_token");
+    sessionStorage.removeItem("jwt");
+    sessionStorage.removeItem("bednear_user");
+
     try {
       const response = await api.post<LoginResponse>("/auth/login", {
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         password,
       });
 
       const { token, user } = response.data;
 
-      if (!token || !user) {
+      // Validate the response.
+      if (!token || !user || !user.id || !user.role) {
         throw new Error(
-          "The server did not return a valid login response."
+          "The server returned an incomplete login response."
         );
       }
 
-      // Save the fresh authentication token.
-      localStorage.setItem("jwt", token);
-      localStorage.setItem("bednear_token", token);
-      localStorage.setItem("bednear_user", JSON.stringify(user));
+      if (user.isActive === false) {
+        throw new Error(
+          "Your account is inactive. Please contact support."
+        );
+      }
 
-      // Clear the registration success state after login.
-      navigate("/dashboard", {
-        replace: true,
-        state: null,
-      });
-    } catch (err) {
+      if (!["ADMIN", "OWNER", "CANDIDATE"].includes(user.role)) {
+        throw new Error("Your account has an unsupported role.");
+      }
+
+      // Candidates cannot access the owner/admin dashboard.
+      if (user.role === "CANDIDATE") {
+        updatePageTitle();
+
+        setError(
+          "This account cannot access the owner dashboard. Please use the BedNear user app."
+        );
+        return;
+      }
+
+      // Save the authenticated session.
+      sessionStorage.setItem("bednear_token", token);
+      sessionStorage.setItem("jwt", token);
+      sessionStorage.setItem("bednear_user", JSON.stringify(user));
+
+      // Set the browser tab title according to the account role.
+      updatePageTitle(user.role);
+
+      // Redirect according to the role returned by the backend.
+      if (user.role === "ADMIN") {
+        navigate("/admin", { replace: true, state: null });
+      } else if (user.role === "OWNER") {
+        navigate("/dashboard", { replace: true, state: null });
+      }
+    } catch (err: unknown) {
+      updatePageTitle();
+
       if (axios.isAxiosError(err)) {
         setError(
           err.response?.data?.message ||
-            "Unable to log in. Please check your connection and try again."
+            "Unable to log in. Check your connection and try again."
         );
       } else {
         setError(
@@ -89,6 +129,16 @@ export default function Login() {
       setLoading(false);
     }
   }
+
+  const inputStyle = {
+    boxSizing: "border-box" as const,
+    width: "100%",
+    padding: "13px 14px 13px 42px",
+    border: "1px solid #ded6eb",
+    borderRadius: 10,
+    fontSize: 14,
+    outlineColor: "#6d28d9",
+  };
 
   return (
     <div
@@ -104,6 +154,7 @@ export default function Login() {
     >
       <div
         style={{
+          boxSizing: "border-box",
           width: "100%",
           maxWidth: 440,
           background: "#ffffff",
@@ -140,13 +191,7 @@ export default function Login() {
             Welcome to BedNear
           </h1>
 
-          <p
-            style={{
-              margin: 0,
-              color: "#77718a",
-              fontSize: 14,
-            }}
-          >
+          <p style={{ margin: 0, color: "#77718a", fontSize: 14 }}>
             Sign in to manage your PG properties.
           </p>
         </div>
@@ -181,12 +226,7 @@ export default function Login() {
             Email address
           </label>
 
-          <div
-            style={{
-              position: "relative",
-              marginBottom: 20,
-            }}
-          >
+          <div style={{ position: "relative", marginBottom: 20 }}>
             <Mail
               size={18}
               style={{
@@ -206,15 +246,7 @@ export default function Login() {
               placeholder="you@example.com"
               autoComplete="username"
               required
-              style={{
-                boxSizing: "border-box",
-                width: "100%",
-                padding: "13px 14px 13px 42px",
-                border: "1px solid #ded6eb",
-                borderRadius: 10,
-                fontSize: 14,
-                outlineColor: "#6d28d9",
-              }}
+              style={inputStyle}
             />
           </div>
 
@@ -229,12 +261,7 @@ export default function Login() {
             Password
           </label>
 
-          <div
-            style={{
-              position: "relative",
-              marginBottom: 22,
-            }}
-          >
+          <div style={{ position: "relative", marginBottom: 22 }}>
             <LockKeyhole
               size={18}
               style={{
@@ -254,25 +281,13 @@ export default function Login() {
               placeholder="Enter your password"
               autoComplete="current-password"
               required
-              style={{
-                boxSizing: "border-box",
-                width: "100%",
-                padding: "13px 44px 13px 42px",
-                border: "1px solid #ded6eb",
-                borderRadius: 10,
-                fontSize: 14,
-                outlineColor: "#6d28d9",
-              }}
+              style={{ ...inputStyle, paddingRight: 44 }}
             />
 
             <button
               type="button"
-              aria-label={
-                showPassword ? "Hide password" : "Show password"
-              }
-              onClick={() =>
-                setShowPassword((value) => !value)
-              }
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              onClick={() => setShowPassword((value) => !value)}
               style={{
                 position: "absolute",
                 right: 10,
@@ -285,11 +300,7 @@ export default function Login() {
                 padding: 5,
               }}
             >
-              {showPassword ? (
-                <EyeOff size={18} />
-              ) : (
-                <Eye size={18} />
-              )}
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
 
@@ -353,3 +364,4 @@ export default function Login() {
     </div>
   );
 }
+

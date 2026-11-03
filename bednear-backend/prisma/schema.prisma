@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,6 +6,10 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+// ===============================
+// ENUMS
+// ===============================
 
 enum UserRole {
   OWNER
@@ -35,6 +38,13 @@ enum EnquiryStatus {
   CLOSED
 }
 
+enum EnquiryContactMethod {
+  INTERESTED
+  CALL
+  WHATSAPP
+  VISIT
+}
+
 enum SubscriptionStatus {
   PENDING
   ACTIVE
@@ -50,6 +60,22 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum VerificationDocumentType {
+  OWNER_IDENTITY
+  PROPERTY_OWNERSHIP
+  AUTHORIZATION_LETTER
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+// ===============================
+// USER
+// ===============================
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -64,13 +90,25 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  listings      Listing[]
-  enquiries     Enquiry[]      @relation("OwnerEnquiries")
+  // Owner relationships
+  listings              Listing[]
+  enquiries             Enquiry[]              @relation("OwnerEnquiries")
+  verificationDocuments VerificationDocument[] @relation("OwnerVerificationDocuments")
+
+  // Candidate relationships
+  candidateEnquiries Enquiry[] @relation("CandidateEnquiries")
+
+  // Other relationships
   favorites     Favorite[]
   subscriptions Subscription[]
+  reviews       Review[]
 
   @@index([role])
 }
+
+// ===============================
+// LISTING / PG
+// ===============================
 
 model Listing {
   id           String        @id @default(cuid())
@@ -89,14 +127,19 @@ model Listing {
   deposit      Int?
   status       ListingStatus @default(DRAFT)
 
+  rejectionReason String?
+  submittedAt     DateTime?
+
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  rooms      Room[]
-  images     ListingImage[]
-  amenities  ListingAmenity[]
-  enquiries  Enquiry[]
-  favorites  Favorite[]
+  rooms                 Room[]
+  images                ListingImage[]
+  amenities             ListingAmenity[]
+  enquiries             Enquiry[]
+  favorites             Favorite[]
+  verificationDocuments VerificationDocument[]
+  reviews               Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -107,11 +150,15 @@ model Listing {
   @@index([genderPolicy])
 }
 
+// ===============================
+// ROOMS
+// ===============================
+
 model Room {
-  id          String  @id @default(cuid())
+  id          String @id @default(cuid())
   name        String
-  roomType    String  @default("Shared")
-  capacity    Int     @default(1)
+  roomType    String @default("Shared")
+  capacity    Int    @default(1)
   monthlyRent Int?
 
   listingId String
@@ -123,6 +170,10 @@ model Room {
 
   @@index([listingId])
 }
+
+// ===============================
+// BEDS
+// ===============================
 
 model Bed {
   id          String    @id @default(cuid())
@@ -140,12 +191,20 @@ model Bed {
   @@index([roomId, status])
 }
 
+// ===============================
+// LISTING IMAGES
+// ===============================
+
 model ListingImage {
-  id        String  @id @default(cuid())
-  url       String
-  altText   String?
-  sortOrder Int     @default(0)
-  isCover   Boolean @default(false)
+  id           String  @id @default(cuid())
+  url          String
+  storageKey   String  @unique
+  originalName String?
+  mimeType     String?
+  fileSize     Int?
+  altText      String?
+  sortOrder    Int     @default(0)
+  isCover      Boolean @default(false)
 
   listingId String
   listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
@@ -154,6 +213,10 @@ model ListingImage {
 
   @@index([listingId, sortOrder])
 }
+
+// ===============================
+// AMENITIES
+// ===============================
 
 model Amenity {
   id        String   @id @default(cuid())
@@ -175,28 +238,81 @@ model ListingAmenity {
   @@index([amenityId])
 }
 
-model Enquiry {
-  id               String        @id @default(cuid())
-  candidateName    String
-  phone            String
-  email            String?
-  message           String?
-  preferredVisitAt DateTime?
-  status            EnquiryStatus @default(NEW)
-  ownerNotes        String?
+// ===============================
+// ENQUIRIES
+// ===============================
 
+// ===============================
+// ENQUIRIES
+// ===============================
+
+model Enquiry {
+  id            String  @id @default(cuid())
+  candidateName String
+  phone         String
+  email         String?
+  message       String?
+
+  // Candidate's preferred PG visit date and time.
+  preferredVisitAt DateTime?
+
+  // Owner marks this after the candidate completes the visit.
+  visitCompletedAt DateTime?
+
+  status     EnquiryStatus @default(NEW)
+  ownerNotes String?
+
+  // Contact actions performed by the candidate.
+  contactMethods EnquiryContactMethod[] @default([])
+
+  // PG listing relationship.
   listingId String
   listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
+  // PG owner relationship.
   ownerId String
   owner   User   @relation("OwnerEnquiries", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Optional candidate account relationship.
+  candidateId String?
+  candidate   User?   @relation("CandidateEnquiries", fields: [candidateId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([ownerId, status])
   @@index([listingId, createdAt])
+  @@index([candidateId, createdAt])
+  @@index([visitCompletedAt])
 }
+
+// ===============================
+// PG REVIEWS AND RATINGS
+// ===============================
+
+model Review {
+  id      String  @id @default(cuid())
+  rating  Int
+  comment String?
+
+  candidateId String
+  listingId   String
+
+  candidate User    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One review per candidate per PG.
+  @@unique([candidateId, listingId])
+  @@index([listingId, createdAt])
+  @@index([candidateId])
+}
+
+// ===============================
+// FAVORITES
+// ===============================
 
 model Favorite {
   id        String   @id @default(cuid())
@@ -210,6 +326,10 @@ model Favorite {
   @@unique([userId, listingId])
   @@index([userId, createdAt])
 }
+
+// ===============================
+// SUBSCRIPTIONS
+// ===============================
 
 model Subscription {
   id        String             @id @default(cuid())
@@ -231,6 +351,10 @@ model Subscription {
   @@index([expiresAt])
 }
 
+// ===============================
+// PAYMENTS
+// ===============================
+
 model Payment {
   id                String        @id @default(cuid())
   amount            Int
@@ -248,4 +372,49 @@ model Payment {
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
 
   @@index([subscriptionId, status])
+}
+
+// ===============================
+// VERIFICATION DOCUMENTS
+// ===============================
+
+model VerificationDocument {
+  id           String                   @id @default(cuid())
+  type         VerificationDocumentType
+  status       VerificationStatus       @default(PENDING)
+  originalName String
+  storageKey   String                   @unique
+  mimeType     String
+  fileSize     Int
+  reviewNote   String?
+  reviewedAt   DateTime?
+
+  ownerId String
+  owner   User   @relation("OwnerVerificationDocuments", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, type, status])
+  @@index([listingId, type, status])
+}
+
+// ===============================
+// PHONE OTP
+// ===============================
+
+model PhoneOtpChallenge {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@index([expiresAt])
 }

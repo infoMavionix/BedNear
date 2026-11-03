@@ -1,17 +1,25 @@
 import { Router } from "express";
 import authMiddleware from "../middleware/auth.middleware";
+
 import {
+  createEnquiry,
+  createEnquiryAction,
+  getMyEnquiries,
   getEnquiries,
   updateEnquiry,
-  createPublicEnquiry,
 } from "../controllers/enquiry.controller";
 
 const router = Router();
 
-// Public candidate submission must be registered before authentication.
-router.post("/public", createPublicEnquiry);
-
+// All enquiry operations require authentication.
 router.use(authMiddleware);
+
+// Candidate routes
+router.post("/", createEnquiry); // Existing enquiry endpoint
+router.post("/action", createEnquiryAction); // Interested, visit, call, WhatsApp
+router.get("/mine", getMyEnquiries);
+
+// Owner routes
 router.get("/", getEnquiries);
 router.patch("/:id", updateEnquiry);
 

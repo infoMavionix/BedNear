@@ -1,4 +1,4 @@
-
+﻿
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Building2, Eye, EyeOff, Mail, LockKeyhole, UserRound, Phone } from "lucide-react";
@@ -61,9 +61,9 @@ export default function Register() {
       }
 
       // Do not automatically log in after registration.
-localStorage.removeItem("jwt");
-localStorage.removeItem("bednear_token");
-localStorage.removeItem("bednear_user");
+sessionStorage.removeItem("jwt");
+sessionStorage.removeItem("bednear_token");
+sessionStorage.removeItem("bednear_user");
 
 navigate("/login", {
   replace: true,
@@ -207,3 +207,4 @@ navigate("/login", {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-
+﻿
 import { api } from "./api";
 
 export interface RegisterData {
@@ -34,12 +34,12 @@ function saveAuthSession(response: AuthResponse) {
   const token = response.token ?? response.accessToken;
 
   if (token) {
-    localStorage.setItem("jwt", token);
-    localStorage.setItem("bednear_token", token);
+    sessionStorage.setItem("jwt", token);
+    sessionStorage.setItem("bednear_token", token);
   }
 
   if (response.user) {
-    localStorage.setItem("bednear_user", JSON.stringify(response.user));
+    sessionStorage.setItem("bednear_user", JSON.stringify(response.user));
   }
 }
 
@@ -62,8 +62,9 @@ export const authService = {
   },
 
   logout() {
-    localStorage.removeItem("jwt");
-    localStorage.removeItem("bednear_token");
-    localStorage.removeItem("bednear_user");
+    sessionStorage.removeItem("jwt");
+    sessionStorage.removeItem("bednear_token");
+    sessionStorage.removeItem("bednear_user");
   },
 };
+

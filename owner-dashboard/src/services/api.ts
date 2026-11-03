@@ -16,8 +16,8 @@ api.interceptors.request.use(
   (config) => {
     // Use the token key already present in the browser.
     const token =
-      localStorage.getItem("jwt") ||
-      localStorage.getItem("bednear_token");
+      sessionStorage.getItem("jwt") ||
+      sessionStorage.getItem("bednear_token");
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -27,3 +27,4 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+

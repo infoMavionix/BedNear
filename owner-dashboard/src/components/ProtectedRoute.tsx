@@ -1,12 +1,20 @@
-
+﻿
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
-export default function ProtectedRoute() {
+type UserRole = "ADMIN" | "OWNER" | "CANDIDATE";
+
+interface ProtectedRouteProps {
+  allowedRoles?: UserRole[];
+}
+
+export default function ProtectedRoute({
+  allowedRoles,
+}: ProtectedRouteProps) {
   const location = useLocation();
 
   const token =
-    localStorage.getItem("jwt") ||
-    localStorage.getItem("bednear_token");
+    sessionStorage.getItem("bednear_token") ||
+    sessionStorage.getItem("jwt");
 
   if (!token) {
     return (
@@ -18,5 +26,38 @@ export default function ProtectedRoute() {
     );
   }
 
+  let role: UserRole | null = null;
+
+  try {
+    const storedUser = sessionStorage.getItem("bednear_user");
+
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (
+        user.role === "ADMIN" ||
+        user.role === "OWNER" ||
+        user.role === "CANDIDATE"
+      ) {
+        role = user.role;
+      }
+    }
+  } catch {
+    role = null;
+  }
+
+  // Require a valid stored role when a route has role restrictions.
+  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+    if (role === "ADMIN") {
+      return <Navigate to="/admin" replace />;
+    }
+
+    if (role === "OWNER") {
+      return <Navigate to="/dashboard" replace />;
+    }
+
+    return <Navigate to="/login" replace />;
+  }
+
   return <Outlet />;
 }
+
