@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useListingRoutes } from '../../hooks/useListingRoutes';
 
 import {
   UserRound,
@@ -28,8 +29,9 @@ import {
   Home,
 } from 'lucide-react-native';
 
-import { colors } from '../../constants/theme';
 import { getListings } from '../../services/listing.service';
+
+
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 import SearchBar from '../../components/SearchBar';
@@ -43,6 +45,8 @@ import { styles } from './HomeScreen.styles';
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
 
 type LocationStatus = 'loading' | 'ready' | 'denied' | 'error';
+
+
 
 const QUICK_CATEGORIES = [
   {
@@ -83,6 +87,7 @@ export default function HomeScreen() {
   const [locationStatus, setLocationStatus] =
     React.useState<LocationStatus>('loading');
 
+  
   const listings = useQuery({
     queryKey: ['home-listings'],
     queryFn: () => getListings(),
@@ -97,71 +102,95 @@ export default function HomeScreen() {
     return available.slice(0, 4);
   }, [listings.data]);
 
-  const fetchCurrentLocation = React.useCallback(async () => {
+  const {
+    listingsWithRoutes: featuredWithRoutes,
+    origin,
+    isLocationLoading,
+    refreshLocation,
+  } = useListingRoutes(featured);
+  // --------------------------------------------------
+  // CURRENT LOCATION
+  // --------------------------------------------------
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    if (isLocationLoading) {
+      setLocationStatus('loading');
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (!origin) {
+      setLocationName('');
+      setLocationStatus('denied');
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setLocationStatus('loading');
 
-    try {
-      const permission =
-        await Location.requestForegroundPermissionsAsync();
+    Location.reverseGeocodeAsync(origin)
+      .then(places => {
+        if (cancelled) return;
 
-      if (permission.status !== 'granted') {
+        const place = places[0];
+        if (!place) {
+          setLocationName('Current location');
+          setLocationStatus('ready');
+          return;
+        }
+
+        const locality =
+          place.district ||
+          place.subregion ||
+          place.city ||
+          place.region ||
+          '';
+        const city = place.city || '';
+
+        const formattedLocation =
+          locality && city && locality !== city
+            ? `${locality}, ${city}`
+            : locality || city || 'Current location';
+
+        setLocationName(formattedLocation);
+        setLocationStatus('ready');
+      })
+      .catch(error => {
+        console.warn('Location reverse geocoding failed:', error);
+        if (!cancelled) {
+          setLocationName('');
+          setLocationStatus('error');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [origin, isLocationLoading]);
+
+  const fetchCurrentLocation = React.useCallback(async () => {
+    setLocationStatus('loading');
+    try {
+      const result = await refreshLocation();
+      if (!result.data) {
         setLocationName('');
         setLocationStatus('denied');
-        return;
       }
-
-      const servicesEnabled =
-        await Location.hasServicesEnabledAsync();
-
-      if (!servicesEnabled) {
-        setLocationName('');
-        setLocationStatus('error');
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const places = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      const place = places[0];
-
-      if (!place) {
-        setLocationName('Current location');
-        setLocationStatus('ready');
-        return;
-      }
-
-      const locality =
-        place.district ||
-        place.subregion ||
-        place.city ||
-        place.region ||
-        '';
-
-      const city = place.city || '';
-
-      const formattedLocation =
-        locality && city && locality !== city
-          ? `${locality}, ${city}`
-          : locality || city || 'Current location';
-
-      setLocationName(formattedLocation);
-      setLocationStatus('ready');
+      // When the shared origin updates, the effect above updates its label.
     } catch (error) {
-      console.warn('Location fetch failed:', error);
+      console.warn('Location refresh failed:', error);
       setLocationName('');
       setLocationStatus('error');
     }
-  }, []);
+  }, [refreshLocation]);
 
-  React.useEffect(() => {
-    void fetchCurrentLocation();
-  }, [fetchCurrentLocation]);
+  // --------------------------------------------------
+  // LOCATION BUTTON
+  // --------------------------------------------------
 
   function handleLocationPress() {
     if (locationStatus === 'loading') return;
@@ -178,6 +207,7 @@ export default function HomeScreen() {
           },
         ]
       );
+
       return;
     }
 
@@ -203,23 +233,40 @@ export default function HomeScreen() {
     switch (locationStatus) {
       case 'loading':
         return 'Detecting location...';
+
       case 'denied':
         return 'Enable location access';
+
       case 'error':
         return 'Tap to retry location';
+
       case 'ready':
         return locationName;
+
       default:
         return 'Current location';
     }
   }
 
+  // --------------------------------------------------
+  // SEARCH NAVIGATION
+  // --------------------------------------------------
+
   function openSearch() {
     navigation.navigate(
       'MainTabs',
-      { screen: 'Search' } as never
+      {
+        screen: 'Search',
+        params: {
+          query: query.trim(),
+        },
+      } as never
     );
   }
+
+  // --------------------------------------------------
+  // HOME SCREEN UI
+  // --------------------------------------------------
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -238,6 +285,7 @@ export default function HomeScreen() {
                   bed
                   <Text style={styles.logoAccent}>near</Text>
                 </Text>
+
                 <View style={styles.logoDot} />
               </View>
 
@@ -282,10 +330,7 @@ export default function HomeScreen() {
                 </Text>
               </View>
 
-              <RefreshCw
-                size={15}
-                color="#E87832"
-              />
+              <RefreshCw size={15} color="#E87832" />
             </Pressable>
           </View>
         </View>
@@ -321,6 +366,8 @@ export default function HomeScreen() {
               <SearchBar
                 value={query}
                 onChangeText={setQuery}
+                placeholder="Search locality, college or office"
+                onSubmitEditing={openSearch}
                 onFilterPress={openSearch}
               />
             </View>
@@ -393,10 +440,7 @@ export default function HomeScreen() {
                     </Text>
                   </View>
 
-                  <ArrowRight
-                    size={16}
-                    color="#E87832"
-                  />
+                  <ArrowRight size={16} color="#E87832" />
                 </Pressable>
               );
             })}
@@ -447,10 +491,11 @@ export default function HomeScreen() {
               message="Try searching another locality or check again later."
             />
           ) : (
-            featured.map(item => (
+            featuredWithRoutes.map(item => (
               <ListingCard
                 key={item.id}
                 listing={item}
+                travelMode="DRIVE"
                 onPress={() =>
                   navigation.navigate('ListingDetails', {
                     listingId: item.id,

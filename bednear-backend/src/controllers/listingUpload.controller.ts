@@ -64,23 +64,40 @@ export const uploadListingPhotos = asyncHandler(async (req, res) => {
       });
     }
 
-    const images = await prisma.$transaction(
-      files.map((file, index) =>
-        prisma.listingImage.create({
-          data: {
-            listingId: id,
-            storageKey: file.filename,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            fileSize: file.size,
-            altText: `PG property photo ${existingCount + index + 1}`,
-            sortOrder: existingCount + index,
-            isCover: existingCount === 0 && index === 0,
-            url: `/api/v1/listings/${id}/images/${file.filename}/file`,
-          },
-        })
-      )
-    );
+   
+const images = await prisma.$transaction(async (tx) => {
+  const createdImages = await Promise.all(
+    files.map(async (file, index) => {
+      // First create the image and let Prisma generate its ID.
+      const createdImage = await tx.listingImage.create({
+        data: {
+          listingId: id,
+          storageKey: file.filename,
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          altText: `PG property photo ${existingCount + index + 1}`,
+          sortOrder: existingCount + index,
+          isCover: existingCount === 0 && index === 0,
+          url: "pending",
+        },
+      });
+
+      // Now use the generated image ID in its URL.
+      return tx.listingImage.update({
+        where: {
+          id: createdImage.id,
+        },
+        data: {
+          url: `/api/v1/public/listings/${id}/images/${createdImage.id}/file`,
+        },
+      });
+    })
+  );
+
+  return createdImages;
+});
+
 
     return res.status(201).json({
       message: "Property photos uploaded successfully.",

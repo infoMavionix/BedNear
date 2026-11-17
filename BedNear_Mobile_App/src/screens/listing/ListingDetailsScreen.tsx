@@ -37,6 +37,7 @@ import AppButton from '../../components/AppButton';
 import LoadingView from '../../components/LoadingView';
 import EmptyState from '../../components/EmptyState';
 import { styles } from './ListingDetailsScreen.styles';
+import { useQueryClient } from '@tanstack/react-query';
 
 type ListingRoute = RouteProp<RootStackParamList, 'ListingDetails'>;
 type Navigation = NativeStackNavigationProp<RootStackParamList>;
@@ -58,6 +59,7 @@ export default function ListingDetailsScreen() {
   const [visitDate, setVisitDate] = React.useState('');
   const [visitTime, setVisitTime] = React.useState('');
   const [actionLoading, setActionLoading] = React.useState(false);
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ['listing', route.params.listingId],
@@ -178,7 +180,9 @@ export default function ListingDetailsScreen() {
         action,
         ...(preferredVisitAt ? { preferredVisitAt } : {}),
       });
-
+await queryClient.invalidateQueries({
+  queryKey: ['my-enquiries'],
+});
       if (action === 'INTERESTED') {
         Alert.alert(
           'Interest submitted',

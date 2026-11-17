@@ -62,6 +62,7 @@ enum PaymentStatus {
 
 enum VerificationDocumentType {
   OWNER_IDENTITY
+  PG_LICENSE
   PROPERTY_OWNERSHIP
   AUTHORIZATION_LETTER
 }
@@ -72,20 +73,31 @@ enum VerificationStatus {
   REJECTED
 }
 
+enum OwnerVerificationStatus {
+  PENDING_REVIEW
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  RESUBMISSION_REQUIRED
+}
+
 // ===============================
 // USER
 // ===============================
 
 model User {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   name         String
-  email        String   @unique
+  email        String  @unique
   passwordHash String
   phone        String?
   businessName String?
-  role         UserRole @default(OWNER)
-  isVerified   Boolean  @default(false)
-  isActive     Boolean  @default(true)
+
+  role       UserRole @default(OWNER)
+  isVerified Boolean  @default(false)
+  isActive   Boolean  @default(true)
+
+  verificationStatus OwnerVerificationStatus @default(PENDING_REVIEW)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -94,6 +106,7 @@ model User {
   listings              Listing[]
   enquiries             Enquiry[]              @relation("OwnerEnquiries")
   verificationDocuments VerificationDocument[] @relation("OwnerVerificationDocuments")
+  ownerProfile          OwnerProfile?
 
   // Candidate relationships
   candidateEnquiries Enquiry[] @relation("CandidateEnquiries")
@@ -104,6 +117,31 @@ model User {
   reviews       Review[]
 
   @@index([role])
+  @@index([verificationStatus])
+}
+
+// ===============================
+// OWNER PROFILE
+// ===============================
+
+model OwnerProfile {
+  id      String @id @default(cuid())
+  ownerId String @unique
+
+  ownerType String @default("Individual Owner")
+
+  address  String?
+  locality String?
+  city     String  @default("Bengaluru")
+  state    String  @default("Karnataka")
+  pincode  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([city, locality])
 }
 
 // ===============================
@@ -242,10 +280,6 @@ model ListingAmenity {
 // ENQUIRIES
 // ===============================
 
-// ===============================
-// ENQUIRIES
-// ===============================
-
 model Enquiry {
   id            String  @id @default(cuid())
   candidateName String
@@ -253,27 +287,20 @@ model Enquiry {
   email         String?
   message       String?
 
-  // Candidate's preferred PG visit date and time.
   preferredVisitAt DateTime?
-
-  // Owner marks this after the candidate completes the visit.
   visitCompletedAt DateTime?
 
   status     EnquiryStatus @default(NEW)
   ownerNotes String?
 
-  // Contact actions performed by the candidate.
   contactMethods EnquiryContactMethod[] @default([])
 
-  // PG listing relationship.
   listingId String
   listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
-  // PG owner relationship.
   ownerId String
   owner   User   @relation("OwnerEnquiries", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  // Optional candidate account relationship.
   candidateId String?
   candidate   User?   @relation("CandidateEnquiries", fields: [candidateId], references: [id], onDelete: SetNull)
 
@@ -304,7 +331,6 @@ model Review {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // One review per candidate per PG.
   @@unique([candidateId, listingId])
   @@index([listingId, createdAt])
   @@index([candidateId])

@@ -7,6 +7,7 @@ import {
   LockKeyhole,
   Mail,
   Building2,
+  ShieldCheck,
 } from "lucide-react";
 import axios from "axios";
 
@@ -14,6 +15,12 @@ import { api } from "../../services/api";
 import { updatePageTitle } from "../../utils/updatePageTitle";
 
 type UserRole = "ADMIN" | "OWNER" | "CANDIDATE";
+
+type VerificationStatus =
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | string;
 
 type LoginResponse = {
   message: string;
@@ -24,6 +31,8 @@ type LoginResponse = {
     email: string;
     role: UserRole;
     isActive?: boolean;
+    isVerified?: boolean;
+    verificationStatus?: VerificationStatus;
     phone?: string | null;
     businessName?: string | null;
   };
@@ -52,13 +61,16 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [verificationNotice, setVerificationNotice] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
     setError("");
+    setVerificationNotice("");
     setLoading(true);
 
-    // Clear any previous account session before signing in.
+    // Remove any previous session before attempting login.
     sessionStorage.removeItem("bednear_token");
     sessionStorage.removeItem("jwt");
     sessionStorage.removeItem("bednear_user");
@@ -71,7 +83,6 @@ export default function Login() {
 
       const { token, user } = response.data;
 
-      // Validate the response.
       if (!token || !user || !user.id || !user.role) {
         throw new Error(
           "The server returned an incomplete login response."
@@ -98,20 +109,86 @@ export default function Login() {
         return;
       }
 
-      // Save the authenticated session.
+      // ADMIN accounts can access the admin dashboard directly.
+      if (user.role === "ADMIN") {
+        sessionStorage.setItem("bednear_token", token);
+        sessionStorage.setItem("jwt", token);
+        sessionStorage.setItem("bednear_user", JSON.stringify(user));
+
+        updatePageTitle(user.role);
+
+        navigate("/admin", {
+          replace: true,
+          state: null,
+        });
+
+        return;
+      }
+
+      // OWNER verification check.
+      // An owner must be approved before accessing the dashboard.
+      const isOwnerPending =
+        user.role === "OWNER" &&
+        (
+          user.isVerified === false ||
+          user.verificationStatus === "PENDING_REVIEW"
+        );
+
+      if (isOwnerPending) {
+        updatePageTitle();
+
+        // Do not store the token for an unapproved owner.
+        sessionStorage.removeItem("bednear_token");
+        sessionStorage.removeItem("jwt");
+        sessionStorage.removeItem("bednear_user");
+
+        setVerificationNotice(
+          "Your account is still under verification. Our admin team is reviewing your owner identity proof and PG licence. You will be able to access your dashboard after approval."
+        );
+
+        return;
+      }
+
+      // Handle rejected owner documents.
+      if (
+        user.role === "OWNER" &&
+        user.verificationStatus === "REJECTED"
+      ) {
+        updatePageTitle();
+
+        setVerificationNotice(
+          "Your verification documents were rejected. Please contact BedNear support for the next steps."
+        );
+
+        return;
+      }
+
+      // Only approved owners should reach this point.
+      if (
+        user.role === "OWNER" &&
+        user.isVerified !== true &&
+        user.verificationStatus !== "APPROVED"
+      ) {
+        updatePageTitle();
+
+        setVerificationNotice(
+          "Your owner verification status could not be confirmed. Please contact BedNear support."
+        );
+
+        return;
+      }
+
+      // Save the session only after the owner is approved.
       sessionStorage.setItem("bednear_token", token);
       sessionStorage.setItem("jwt", token);
       sessionStorage.setItem("bednear_user", JSON.stringify(user));
 
-      // Set the browser tab title according to the account role.
       updatePageTitle(user.role);
 
-      // Redirect according to the role returned by the backend.
-      if (user.role === "ADMIN") {
-        navigate("/admin", { replace: true, state: null });
-      } else if (user.role === "OWNER") {
-        navigate("/dashboard", { replace: true, state: null });
-      }
+      navigate("/dashboard", {
+        replace: true,
+        state: null,
+      });
     } catch (err: unknown) {
       updatePageTitle();
 
@@ -156,7 +233,7 @@ export default function Login() {
         style={{
           boxSizing: "border-box",
           width: "100%",
-          maxWidth: 440,
+          maxWidth: 460,
           background: "#ffffff",
           border: "1px solid #eee7f7",
           borderRadius: 20,
@@ -164,12 +241,13 @@ export default function Login() {
           boxShadow: "0 12px 40px rgba(65, 30, 100, 0.08)",
         }}
       >
+        {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 30 }}>
           <div
             style={{
-              width: 58,
-              height: 58,
-              borderRadius: 16,
+              width: 64,
+              height: 64,
+              borderRadius: 18,
               background: "#6d28d9",
               color: "#ffffff",
               display: "inline-flex",
@@ -178,7 +256,7 @@ export default function Login() {
               marginBottom: 16,
             }}
           >
-            <Building2 size={30} />
+            <Building2 size={32} />
           </div>
 
           <h1
@@ -186,6 +264,7 @@ export default function Login() {
               margin: "0 0 8px",
               color: "#35116f",
               fontSize: 28,
+              fontWeight: 700,
             }}
           >
             Welcome to BedNear
@@ -196,24 +275,69 @@ export default function Login() {
           </p>
         </div>
 
+        {/* Registration success message */}
         {registered && (
           <div
             role="status"
             style={{
-              background: "#f0fdf4",
-              color: "#166534",
-              border: "1px solid #bbf7d0",
-              borderRadius: 9,
-              padding: 12,
-              marginBottom: 18,
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-start",
+              background: "#f5f0ff",
+              color: "#5420a5",
+              border: "1px solid #e5d5ff",
+              borderRadius: 10,
+              padding: 14,
+              marginBottom: 20,
               fontSize: 13,
+              lineHeight: 1.6,
             }}
           >
-            Account created successfully! Please sign in.
-            {registeredEmail ? ` Email: ${registeredEmail}` : ""}
+            <ShieldCheck size={20} style={{ flexShrink: 0 }} />
+
+            <div>
+              <strong>Registration submitted successfully!</strong>
+              <div>
+                Your documents are awaiting admin verification. You can
+                access your owner dashboard after approval.
+              </div>
+              {registeredEmail && (
+                <div style={{ marginTop: 5 }}>
+                  Registered email: <strong>{registeredEmail}</strong>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
+        {/* Pending/rejected verification message */}
+        {verificationNotice && (
+          <div
+            role="status"
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-start",
+              background: "#f5f0ff",
+              color: "#5420a5",
+              border: "1px solid #e5d5ff",
+              borderRadius: 10,
+              padding: 14,
+              marginBottom: 20,
+              fontSize: 13,
+              lineHeight: 1.6,
+            }}
+          >
+            <ShieldCheck size={20} style={{ flexShrink: 0 }} />
+
+            <div>
+              <strong>Owner verification update</strong>
+              <div>{verificationNotice}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Login form */}
         <form onSubmit={handleSubmit}>
           <label
             htmlFor="email"
@@ -221,6 +345,7 @@ export default function Login() {
               display: "block",
               marginBottom: 8,
               fontWeight: 600,
+              color: "#21143a",
             }}
           >
             Email address
@@ -242,7 +367,11 @@ export default function Login() {
               id="email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setVerificationNotice("");
+                setError("");
+              }}
               placeholder="you@example.com"
               autoComplete="username"
               required
@@ -256,6 +385,7 @@ export default function Login() {
               display: "block",
               marginBottom: 8,
               fontWeight: 600,
+              color: "#21143a",
             }}
           >
             Password
@@ -277,7 +407,11 @@ export default function Login() {
               id="password"
               type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(event) => setPassword(event.target.value)}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setVerificationNotice("");
+                setError("");
+              }}
               placeholder="Enter your password"
               autoComplete="current-password"
               required
@@ -304,6 +438,7 @@ export default function Login() {
             </button>
           </div>
 
+          {/* Login error */}
           {error && (
             <div
               role="alert"
@@ -315,6 +450,7 @@ export default function Login() {
                 padding: 12,
                 marginBottom: 18,
                 fontSize: 13,
+                lineHeight: 1.5,
               }}
             >
               {error}
@@ -336,10 +472,11 @@ export default function Login() {
               cursor: loading ? "wait" : "pointer",
             }}
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? "Checking account..." : "Sign in"}
           </button>
         </form>
 
+        {/* Registration link */}
         <p
           style={{
             textAlign: "center",
@@ -364,4 +501,3 @@ export default function Login() {
     </div>
   );
 }
-

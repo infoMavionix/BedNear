@@ -1,7 +1,10 @@
 
 import React from "react";
 
-import { NavigationContainer } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  NavigatorScreenParams,
+} from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -45,7 +48,9 @@ export type ContactType = "phone" | "whatsapp";
 
 export type MainTabParamList = {
   Home: undefined;
-  Search: undefined;
+  Search: {
+    query?: string;
+  } | undefined;
   Saved: undefined;
   Enquiries: undefined;
   Profile: undefined;
@@ -56,13 +61,8 @@ export type MainTabParamList = {
 // --------------------------------------------------
 
 export type RootStackParamList = {
-  MainTabs:
-    | {
-        screen?: keyof MainTabParamList;
-      }
-    | undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
 
-  // PG Details
   ListingDetails: {
     listingId: string;
     pendingAction?: ListingAction;
@@ -70,7 +70,6 @@ export type RootStackParamList = {
     contactType?: ContactType;
   };
 
-  // Map Search
   MapSearch: {
     locality?: string;
     sharing?: string;
@@ -79,7 +78,6 @@ export type RootStackParamList = {
     accommodationType?: string;
   };
 
-  // Phone Login
   PhoneLogin:
     | {
         listingId?: string;
@@ -89,7 +87,6 @@ export type RootStackParamList = {
       }
     | undefined;
 
-  // OTP Verification
   OtpVerification: {
     phone: string;
     listingId?: string;
@@ -150,7 +147,6 @@ function MainTabs() {
         },
       }}
     >
-      {/* HOME */}
       <Tab.Screen
         name="Home"
         component={HomeScreen}
@@ -162,7 +158,6 @@ function MainTabs() {
         }}
       />
 
-      {/* SEARCH */}
       <Tab.Screen
         name="Search"
         component={SearchScreen}
@@ -174,7 +169,6 @@ function MainTabs() {
         }}
       />
 
-      {/* SAVED PGs */}
       <Tab.Screen
         name="Saved"
         component={FavouritesScreen}
@@ -186,7 +180,6 @@ function MainTabs() {
         }}
       />
 
-      {/* ENQUIRIES */}
       <Tab.Screen
         name="Enquiries"
         component={EnquiriesScreen}
@@ -198,7 +191,6 @@ function MainTabs() {
         }}
       />
 
-      {/* PROFILE */}
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
@@ -221,7 +213,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="MainTabs"
+        initialRouteName="PhoneLogin"
         screenOptions={{
           headerTintColor: colors.primary,
 
@@ -238,12 +230,34 @@ export default function AppNavigator() {
           },
         }}
       >
+        {/* PHONE LOGIN - FIRST SCREEN */}
+        <Stack.Screen
+          name="PhoneLogin"
+          component={PhoneLoginScreen}
+          options={{
+            headerShown: false,
+            animation: "fade",
+            gestureEnabled: false,
+          }}
+        />
+
+        {/* OTP VERIFICATION */}
+        <Stack.Screen
+          name="OtpVerification"
+          component={OtpVerificationScreen}
+          options={{
+            title: "Verify mobile number",
+            headerBackTitle: "Back",
+          }}
+        />
+
         {/* MAIN APPLICATION */}
         <Stack.Screen
           name="MainTabs"
           component={MainTabs}
           options={{
             headerShown: false,
+            gestureEnabled: false,
           }}
         />
 
@@ -263,25 +277,6 @@ export default function AppNavigator() {
           options={{
             title: "PGs on Map",
             headerShown: false,
-          }}
-        />
-
-        {/* PHONE LOGIN */}
-        <Stack.Screen
-          name="PhoneLogin"
-          component={PhoneLoginScreen}
-          options={{
-            headerShown: false,
-            animation: "fade",
-          }}
-        />
-
-        {/* OTP VERIFICATION */}
-        <Stack.Screen
-          name="OtpVerification"
-          component={OtpVerificationScreen}
-          options={{
-            title: "Verify mobile number",
           }}
         />
       </Stack.Navigator>
