@@ -1,0 +1,3 @@
+import { StyleSheet } from 'react-native';
+import { colors, radius } from '../constants/theme';
+export const styles=StyleSheet.create({container:{alignItems:'center',justifyContent:'center',padding:24,backgroundColor:colors.surface,borderWidth:1,borderColor:colors.border,borderRadius:radius.lg},icon:{width:68,height:68,borderRadius:24,backgroundColor:colors.primaryLight,alignItems:'center',justifyContent:'center',marginBottom:16},title:{color:colors.text,fontSize:17,fontWeight:'800',textAlign:'center'},message:{color:colors.muted,fontSize:13,lineHeight:20,textAlign:'center',marginTop:8},button:{marginTop:18,minWidth:150}});
