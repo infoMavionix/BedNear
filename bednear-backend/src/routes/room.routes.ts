@@ -1,5 +1,8 @@
 import { Router } from "express";
-import authMiddleware from "../middleware/auth.middleware";
+import authMiddleware, {
+  requireApprovedOwner,
+} from "../middleware/auth.middleware";
+
 import {
   getRooms,
   createRoom,
@@ -9,7 +12,9 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware);
+// Only authenticated and approved PG owners can manage rooms.
+router.use(authMiddleware, requireApprovedOwner);
+
 router.get("/", getRooms);
 router.post("/", createRoom);
 router.patch("/:id", updateRoom);

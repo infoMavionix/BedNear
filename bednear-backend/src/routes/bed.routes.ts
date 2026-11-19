@@ -1,5 +1,8 @@
 import { Router } from "express";
-import authMiddleware from "../middleware/auth.middleware";
+import authMiddleware, {
+  requireApprovedOwner,
+} from "../middleware/auth.middleware";
+
 import {
   getBeds,
   createBed,
@@ -9,7 +12,9 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware);
+// Only authenticated and approved PG owners can manage beds.
+router.use(authMiddleware, requireApprovedOwner);
+
 router.get("/", getBeds);
 router.post("/", createBed);
 router.patch("/:id", updateBed);

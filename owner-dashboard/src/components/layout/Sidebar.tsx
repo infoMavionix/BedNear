@@ -7,6 +7,7 @@ import {
   DoorOpen,
   BedDouble,
   MessageSquare,
+  CreditCard,
   UserRound,
   LogOut,
 } from "lucide-react";
@@ -18,6 +19,7 @@ const navigation = [
   { label: "Rooms", to: "/rooms", icon: DoorOpen, end: true },
   { label: "Bed Availability", to: "/beds", icon: BedDouble, end: true },
   { label: "Enquiries", to: "/enquiries", icon: MessageSquare, end: true },
+  { label: "Subscriptions", to: "/subscriptions", icon: CreditCard, end: true },
   { label: "Profile", to: "/profile", icon: UserRound, end: true },
 ];
 
@@ -81,4 +83,3 @@ export default function Sidebar() {
     </aside>
   );
 }
-

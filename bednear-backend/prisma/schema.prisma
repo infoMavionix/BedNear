@@ -53,12 +53,22 @@ enum SubscriptionStatus {
   FAILED
 }
 
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+}
+
+
+
 enum PaymentStatus {
   PENDING
   SUCCESS
   FAILED
   REFUNDED
+  CANCELLED
 }
+
 
 enum VerificationDocumentType {
   OWNER_IDENTITY
@@ -178,6 +188,7 @@ model Listing {
   favorites             Favorite[]
   verificationDocuments VerificationDocument[]
   reviews               Review[]
+  subscriptions Subscription[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -357,24 +368,40 @@ model Favorite {
 // SUBSCRIPTIONS
 // ===============================
 
-model Subscription {
-  id        String             @id @default(cuid())
-  planName  String
-  amount    Int
-  currency  String             @default("INR")
-  status    SubscriptionStatus @default(PENDING)
-  startsAt  DateTime?
-  expiresAt DateTime?
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
 
+model Subscription {
+  id           String             @id @default(cuid())
+  planCode     String             @default("STARTER")
+  planName     String
+  billingCycle BillingCycle       @default(MONTHLY)
+
+  // Amount is stored in INR rupees.
+  amount       Int
+  currency     String             @default("INR")
+
+  status       SubscriptionStatus @default(PENDING)
+
+  startsAt     DateTime?
+  expiresAt    DateTime?
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  // Owner relationship
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  // PG relationship.
+  // Optional to preserve existing historical subscriptions.
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Restrict)
 
   payments Payment[]
 
   @@index([userId, status])
+  @@index([listingId, status])
   @@index([expiresAt])
+  @@index([planCode, billingCycle])
 }
 
 // ===============================

@@ -14,11 +14,14 @@ import bedRoutes from "./routes/bed.routes";
 import enquiryRoutes from "./routes/enquiry.routes";
 import dashboardRoutes from "./routes/dashboard.routes";
 import adminRoutes from "./routes/admin.routes";
-import authMiddleware from "./middleware/auth.middleware";
+import authMiddleware, {
+  requireApprovedOwner,
+} from "./middleware/auth.middleware";
 
 import { prisma } from "./config/prisma";
 import { asyncHandler } from "./utils/async-handler";
 import { getStoredFilePath } from "./config/storage";
+import subscriptionRoutes from "./routes/subscription.routes";
 
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
@@ -47,15 +50,17 @@ app.use(express.json({ limit: "1mb" }));
 // Modular API routes
 // --------------------------------------------------
 
-app.use("/api/v1/auth", authRoutes);
+ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/profile", profileRoutes);
+
 app.use("/api/v1/listings", listingRoutes);
 app.use("/api/v1/rooms", roomRoutes);
 app.use("/api/v1/beds", bedRoutes);
+
 app.use("/api/v1/enquiries", enquiryRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/admin", adminRoutes);
-
+app.use("/api/v1/subscriptions", subscriptionRoutes);
 // --------------------------------------------------
 // Health check
 // --------------------------------------------------

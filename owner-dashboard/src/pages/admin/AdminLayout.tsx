@@ -1,6 +1,7 @@
 ﻿
 import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+
 import {
   LayoutDashboard,
   Building2,
@@ -15,24 +16,64 @@ import {
   Bell,
   X,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 
 import "./Admin.css";
 
 const navigation = [
-  { label: "Overview", path: "/admin", icon: LayoutDashboard, end: true },
-  { label: "PG Approvals", path: "/admin/listings/pending", icon: Building2 },
-  { label: "Owners", path: "/admin/owners", icon: Users },
-  { label: "Users", path: "/admin/users", icon: UserRound },
-  { label: "Enquiries", path: "/admin/enquiries", icon: MessageSquare },
-  { label: "Payments", path: "/admin/payments", icon: CreditCard },
+  {
+    label: "Overview",
+    path: "/admin",
+    icon: LayoutDashboard,
+    end: true,
+  },
+  {
+    label: "PG Approvals",
+    path: "/admin/listings/pending",
+    icon: Building2,
+  },
+  {
+    label: "Owner Verification",
+    path: "/admin/owners/verification",
+    icon: ShieldCheck,
+  },
+  {
+    label: "Owners",
+    path: "/admin/owners",
+    icon: Users,
+    end: true,
+  },
+  {
+    label: "Users",
+    path: "/admin/users",
+    icon: UserRound,
+  },
+  {
+    label: "Enquiries",
+    path: "/admin/enquiries",
+    icon: MessageSquare,
+  },
+  {
+    label: "Payments",
+    path: "/admin/payments",
+    icon: CreditCard,
+  },
   {
     label: "Subscriptions",
     path: "/admin/subscriptions",
     icon: CalendarCheck,
   },
-  { label: "Reports", path: "/admin/reports", icon: BarChart3 },
-  { label: "Settings", path: "/admin/settings", icon: Settings },
+  {
+    label: "Reports",
+    path: "/admin/reports",
+    icon: BarChart3,
+  },
+  {
+    label: "Settings",
+    path: "/admin/settings",
+    icon: Settings,
+  },
 ];
 
 export default function AdminLayout() {
@@ -45,13 +86,17 @@ export default function AdminLayout() {
     sessionStorage.removeItem("jwt");
     sessionStorage.removeItem("bednear_user");
 
-    // Return to login and prevent going back to the admin page.
+    localStorage.removeItem("jwt");
+    localStorage.removeItem("bednear_token");
+
+    // Return to login and prevent going back to admin page.
     setSidebarOpen(false);
     navigate("/login", { replace: true });
   }
 
   return (
     <div className="admin-shell">
+      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <button
           type="button"
@@ -61,6 +106,7 @@ export default function AdminLayout() {
         />
       )}
 
+      {/* Sidebar */}
       <aside
         className={`admin-sidebar ${
           sidebarOpen ? "admin-sidebar-open" : ""
@@ -87,53 +133,57 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        <div className="admin-nav-label">WORKSPACE</div>
+        <div className="admin-nav-label">
+          WORKSPACE
+        </div>
 
         {/* Navigation */}
         <nav className="admin-navigation">
-          {navigation.map(({ label, path, icon: Icon, end }) => (
-            <NavLink
-              key={path}
-              to={path}
-              end={end}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                `admin-nav-link ${
-                  isActive ? "admin-nav-link-active" : ""
-                }`
-              }
-            >
-              <Icon size={19} strokeWidth={1.9} />
+          {navigation.map(
+            ({ label, path, icon: Icon, end }) => (
+              <NavLink
+                key={path}
+                to={path}
+                end={end}
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) =>
+                  `admin-nav-link ${
+                    isActive ? "admin-nav-link-active" : ""
+                  }`
+                }
+              >
+                <Icon size={19} strokeWidth={1.9} />
 
-              <span>{label}</span>
+                <span>{label}</span>
 
-              {label === "PG Approvals" && (
-                <span className="admin-nav-arrow">â€º</span>
-              )}
-            </NavLink>
-          ))}
+                {label === "PG Approvals" && (
+                  <span className="admin-nav-arrow">
+                    ›
+                  </span>
+                )}
+              </NavLink>
+            )
+          )}
         </nav>
 
-       
-<div className="admin-sidebar-footer">
-  
-
-  <button
-    type="button"
-    className="admin-logout-button"
-    onClick={handleLogout}
-    title="Logout"
-    aria-label="Logout"
-  >
-    <LogOut size={18} />
-    <span>Logout</span>
-  </button>
-</div>
-
+        {/* Sidebar footer */}
+        <div className="admin-sidebar-footer">
+          <button
+            type="button"
+            className="admin-logout-button"
+            onClick={handleLogout}
+            title="Logout"
+            aria-label="Logout"
+          >
+            <LogOut size={18} />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main dashboard */}
       <div className="admin-main">
+        {/* Topbar */}
         <header className="admin-topbar">
           <div className="admin-topbar-left">
             <button
@@ -168,6 +218,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
+        {/* Page content */}
         <main className="admin-content">
           <Outlet />
         </main>
@@ -175,4 +226,3 @@ export default function AdminLayout() {
     </div>
   );
 }
-

@@ -14,7 +14,9 @@ export default function ProtectedRoute({
 
   const token =
     sessionStorage.getItem("bednear_token") ||
-    sessionStorage.getItem("jwt");
+    sessionStorage.getItem("jwt") ||
+    localStorage.getItem("bednear_token") ||
+    localStorage.getItem("jwt");
 
   if (!token) {
     return (
@@ -29,10 +31,13 @@ export default function ProtectedRoute({
   let role: UserRole | null = null;
 
   try {
-    const storedUser = sessionStorage.getItem("bednear_user");
+    const storedUser =
+      sessionStorage.getItem("bednear_user") ||
+      localStorage.getItem("bednear_user");
 
     if (storedUser) {
       const user = JSON.parse(storedUser);
+
       if (
         user.role === "ADMIN" ||
         user.role === "OWNER" ||
@@ -41,11 +46,10 @@ export default function ProtectedRoute({
         role = user.role;
       }
     }
-  } catch {
-    role = null;
+  } catch (error) {
+    console.error("Unable to read logged-in user:", error);
   }
 
-  // Require a valid stored role when a route has role restrictions.
   if (allowedRoles && (!role || !allowedRoles.includes(role))) {
     if (role === "ADMIN") {
       return <Navigate to="/admin" replace />;
@@ -60,4 +64,3 @@ export default function ProtectedRoute({
 
   return <Outlet />;
 }
-

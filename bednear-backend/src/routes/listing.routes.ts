@@ -1,6 +1,9 @@
 
 import { Router } from "express";
-import authMiddleware from "../middleware/auth.middleware";
+
+import authMiddleware, {
+  requireApprovedOwner,
+} from "../middleware/auth.middleware";
 
 import {
   uploadPropertyPhotos,
@@ -25,7 +28,9 @@ import {
 
 const router = Router();
 
-router.use(authMiddleware);
+// All listing operations require an authenticated,
+// active and admin-approved owner.
+router.use(authMiddleware, requireApprovedOwner);
 
 // Listing CRUD
 router.get("/", getListings);
@@ -38,7 +43,7 @@ router.post(
   uploadListingPhotos
 );
 
-// Upload verification documents
+// Upload listing documents
 router.post(
   "/:id/documents",
   uploadSingleFile,
@@ -63,6 +68,7 @@ router.patch("/:id/submit", submitListingForReview);
 router.patch("/:id", updateListing);
 router.delete("/:id", deleteListing);
 
+// Get individual listing
 router.get("/:id", getListingById);
 
 export default router;

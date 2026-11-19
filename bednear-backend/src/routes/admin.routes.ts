@@ -1,3 +1,4 @@
+
 import { Router } from "express";
 
 import authMiddleware from "../middleware/auth.middleware";
@@ -21,22 +22,36 @@ import {
   updateAdminEnquiry,
 } from "../controllers/adminEnquiry.controller";
 
-
 import { getAdminListingImage } from "../controllers/adminListingImage.controller";
 
 import {
   getAdminVerificationDocument,
   reviewVerificationDocument,
-  getAdminListingImageFile,
 } from "../controllers/adminVerification.controller";
+
+import {
+  getAdminSubscriptions,
+  getAdminSubscriptionSummary,
+} from "../controllers/subscription.controller";
 
 const router = Router();
 
-// All routes below require a valid ADMIN account.
+// All routes require a valid ADMIN account.
 router.use(authMiddleware, adminMiddleware);
 
 // Dashboard
 router.get("/dashboard/stats", getAdminDashboardStats);
+
+// Subscription management
+router.get(
+  "/subscriptions/summary",
+  getAdminSubscriptionSummary
+);
+
+router.get(
+  "/subscriptions",
+  getAdminSubscriptions
+);
 
 // PG listing approvals
 router.get("/listings/pending", getPendingListings);
@@ -51,7 +66,7 @@ router.patch("/users/:id/status", updateAdminUserStatus);
 router.get("/enquiries", getAdminEnquiries);
 router.patch("/enquiries/:id", updateAdminEnquiry);
 
-// Verification document review
+// Owner and PG verification documents
 router.get(
   "/documents/:documentId/file",
   getAdminVerificationDocument
@@ -62,13 +77,10 @@ router.patch(
   reviewVerificationDocument
 );
 
+// PG listing images
 router.get(
   "/listings/:listingId/images/:storageKey/file",
   getAdminListingImage
 );
 
-router.get(
-  "/listings/:listingId/images/:storageKey/file",
-  getAdminListingImageFile
-);
 export default router;

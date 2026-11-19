@@ -1,5 +1,9 @@
+
 import { Router } from "express";
-import authMiddleware from "../middleware/auth.middleware";
+
+import authMiddleware, {
+  requireApprovedOwner,
+} from "../middleware/auth.middleware";
 
 import {
   createEnquiry,
@@ -14,13 +18,32 @@ const router = Router();
 // All enquiry operations require authentication.
 router.use(authMiddleware);
 
-// Candidate routes
-router.post("/", createEnquiry); // Existing enquiry endpoint
-router.post("/action", createEnquiryAction); // Interested, visit, call, WhatsApp
+// --------------------------------------------------
+// CANDIDATE ROUTES
+// --------------------------------------------------
+
+// Candidates can create enquiries without owner approval.
+router.post("/", createEnquiry);
+
+router.post("/action", createEnquiryAction);
+
 router.get("/mine", getMyEnquiries);
 
-// Owner routes
-router.get("/", getEnquiries);
-router.patch("/:id", updateEnquiry);
+// --------------------------------------------------
+// APPROVED OWNER ROUTES
+// --------------------------------------------------
+
+// Only approved owners can view and manage enquiries.
+router.get(
+  "/",
+  requireApprovedOwner,
+  getEnquiries
+);
+
+router.patch(
+  "/:id",
+  requireApprovedOwner,
+  updateEnquiry
+);
 
 export default router;

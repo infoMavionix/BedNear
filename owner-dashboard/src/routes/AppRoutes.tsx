@@ -16,15 +16,17 @@ import Rooms from "../pages/rooms/Rooms";
 import Beds from "../pages/beds/Beds";
 import Enquiries from "../pages/enquiries/Enquiries";
 import Profile from "../pages/profile/Profile";
+import Subscriptions from "../pages/subscriptions/Subscriptions";
 
 import AdminLayout from "../pages/admin/AdminLayout";
 import AdminOverview from "../pages/admin/AdminOverview";
 import PendingListings from "../pages/admin/PendingListings";
+import OwnerVerification from "../pages/admin/OwnerVerification";
 import AdminUsers from "../pages/admin/AdminUsers";
 import AdminPlaceholder from "../pages/admin/AdminPlaceholder";
+import AdminEnquiries from "../pages/admin/AdminEnquiries";
 
 import { updatePageTitle } from "../utils/updatePageTitle";
-import AdminEnquiries from "../pages/admin/AdminEnquiries";
 
 export default function AppRoutes() {
   useEffect(() => {
@@ -53,42 +55,35 @@ export default function AppRoutes() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
 
+          {/* PG listing approvals */}
           <Route
             path="listings/pending"
             element={<PendingListings />}
           />
 
-          {/* Owner and candidate account management */}
-         <Route
-  path="owners"
-  element={<AdminUsers key="owners" defaultRole="OWNER" />}
-/>
+          {/* Owner registration document verification */}
+          <Route
+            path="owners/verification"
+            element={<OwnerVerification />}
+          />
 
-<Route
-  path="users"
-  element={<AdminUsers key="candidates" defaultRole="CANDIDATE" />}
-/>
+          {/* Owner and candidate account management */}
+          <Route
+            path="owners"
+            element={<AdminUsers key="owners" defaultRole="OWNER" />}
+          />
+
+          <Route
+            path="users"
+            element={<AdminUsers key="candidates" defaultRole="CANDIDATE" />}
+          />
+
           {/* Other admin modules */}
-          <Route
-  path="enquiries"
-  element={<AdminEnquiries />}
-/>
-          <Route
-            path="payments"
-            element={<AdminPlaceholder />}
-          />
-          <Route
-            path="subscriptions"
-            element={<AdminPlaceholder />}
-          />
-          <Route
-            path="reports"
-            element={<AdminPlaceholder />}
-          />
-          <Route
-            path="settings"
-            element={<AdminPlaceholder />}
-          />
+          <Route path="enquiries" element={<AdminEnquiries />} />
+          <Route path="payments" element={<AdminPlaceholder />} />
+          <Route path="subscriptions" element={<AdminPlaceholder />} />
+          <Route path="reports" element={<AdminPlaceholder />} />
+          <Route path="settings" element={<AdminPlaceholder />} />
         </Route>
       </Route>
 
@@ -99,23 +94,21 @@ export default function AppRoutes() {
 
           {/* PG listing management */}
           <Route path="/listings" element={<Listings />} />
-          <Route
-            path="/listings/new"
-            element={<CreateListing />}
-          />
-          <Route
-            path="/listings/:id/edit"
-            element={<CreateListing />}
-          />
-          <Route
-            path="/listings/:id"
-            element={<ListingDetails />}
-          />
+          <Route path="/listings/new" element={<CreateListing />} />
+          <Route path="/listings/:id/edit" element={<CreateListing />} />
+          <Route path="/listings/:id" element={<ListingDetails />} />
 
           {/* Other owner pages */}
           <Route path="/rooms" element={<Rooms />} />
           <Route path="/beds" element={<Beds />} />
           <Route path="/enquiries" element={<Enquiries />} />
+
+          {/* Owner subscription management */}
+          <Route
+            path="/subscriptions"
+            element={<Subscriptions />}
+          />
+
           <Route path="/profile" element={<Profile />} />
         </Route>
       </Route>
@@ -134,4 +127,3 @@ export default function AppRoutes() {
     </Routes>
   );
 }
-

@@ -67,10 +67,17 @@ export const getAdminVerificationDocument = asyncHandler(
 );
 
 // PATCH /api/v1/admin/documents/:documentId/review
+//
 // Body:
 // { "status": "VERIFIED" }
+//
 // or
+//
 // { "status": "REJECTED", "reviewNote": "Document is unclear..." }
+//
+// Supports:
+// 1. Owner registration documents (listingId = null)
+// 2. PG listing verification documents (listingId != null)
 export const reviewVerificationDocument = asyncHandler(
   async (req, res) => {
     const documentId = z.string().min(1).parse(req.params.documentId);
@@ -92,10 +99,19 @@ export const reviewVerificationDocument = asyncHandler(
 
     const { status, reviewNote } = bodySchema.parse(req.body);
 
+    const adminId = (req as AuthenticatedRequest).userId;
+
+    if (!adminId) {
+      return res.status(401).json({
+        message: "Please log in again.",
+      });
+    }
+
     const existing = await prisma.verificationDocument.findUnique({
       where: { id: documentId },
       select: {
         id: true,
+        ownerId: true,
         type: true,
         status: true,
         listingId: true,
@@ -114,9 +130,144 @@ export const reviewVerificationDocument = asyncHandler(
       });
     }
 
-    if (!existing.listingId || !existing.listing) {
-      return res.status(400).json({
-        message: "This document is not linked to a PG listing.",
+    // ------------------------------------------
+    // CASE 1: OWNER REGISTRATION DOCUMENT
+    // ------------------------------------------
+
+    if (!existing.listingId) {
+      const allowedOwnerDocumentTypes = [
+        "OWNER_IDENTITY",
+        "PG_LICENSE",
+      ];
+
+      if (!allowedOwnerDocumentTypes.includes(existing.type)) {
+        return res.status(400).json({
+          message: "Invalid owner registration document type.",
+        });
+      }
+
+      const result = await prisma.$transaction(async (tx) => {
+        // Update the reviewed document.
+        const document = await tx.verificationDocument.update({
+          where: { id: documentId },
+          data: {
+            status,
+            reviewNote:
+              status === "REJECTED"
+                ? reviewNote!.trim()
+                : reviewNote?.trim() || null,
+            reviewedAt: new Date(),
+          },
+          select: {
+            id: true,
+            ownerId: true,
+            type: true,
+            status: true,
+            originalName: true,
+            reviewNote: true,
+            reviewedAt: true,
+            updatedAt: true,
+          },
+        });
+
+        if (status === "REJECTED") {
+          // A rejected registration document blocks the owner.
+          const owner = await tx.user.update({
+            where: { id: existing.ownerId },
+            data: {
+              isVerified: false,
+              verificationStatus: "REJECTED",
+            },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              isVerified: true,
+              verificationStatus: true,
+            },
+          });
+
+          return {
+            document,
+            owner,
+            approved: false,
+          };
+        }
+
+        // Check both mandatory owner registration documents.
+        const ownerDocuments =
+          await tx.verificationDocument.findMany({
+            where: {
+              ownerId: existing.ownerId,
+              listingId: null,
+              type: {
+                in: ["OWNER_IDENTITY", "PG_LICENSE"],
+              },
+            },
+            select: {
+              type: true,
+              status: true,
+            },
+          });
+
+        const identityVerified = ownerDocuments.some(
+          (item) =>
+            item.type === "OWNER_IDENTITY" &&
+            item.status === "VERIFIED"
+        );
+
+        const licenseVerified = ownerDocuments.some(
+          (item) =>
+            item.type === "PG_LICENSE" &&
+            item.status === "VERIFIED"
+        );
+
+        const allDocumentsVerified =
+          identityVerified && licenseVerified;
+
+        const owner = await tx.user.update({
+          where: { id: existing.ownerId },
+          data: allDocumentsVerified
+            ? {
+                isVerified: true,
+                verificationStatus: "APPROVED",
+              }
+            : {
+                isVerified: false,
+                verificationStatus: "UNDER_REVIEW",
+              },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            isVerified: true,
+            verificationStatus: true,
+          },
+        });
+
+        return {
+          document,
+          owner,
+          approved: allDocumentsVerified,
+        };
+      });
+
+      return res.json({
+        message: result.approved
+          ? "Document verified. All required owner documents are approved. Owner account is now approved."
+          : "Document verified. Waiting for the remaining owner registration document to be verified.",
+        document: result.document,
+        owner: result.owner,
+      });
+    }
+
+    // ------------------------------------------
+    // CASE 2: PG LISTING DOCUMENT
+    // ------------------------------------------
+
+    if (!existing.listing) {
+      return res.status(404).json({
+        message: "Associated PG listing not found.",
       });
     }
 
@@ -124,14 +275,6 @@ export const reviewVerificationDocument = asyncHandler(
       return res.status(400).json({
         message:
           "Only documents belonging to pending PG listings can be reviewed.",
-      });
-    }
-
-    const adminId = (req as AuthenticatedRequest).userId;
-
-    if (!adminId) {
-      return res.status(401).json({
-        message: "Please log in again.",
       });
     }
 
@@ -147,6 +290,7 @@ export const reviewVerificationDocument = asyncHandler(
       },
       select: {
         id: true,
+        ownerId: true,
         type: true,
         status: true,
         originalName: true,
@@ -159,8 +303,8 @@ export const reviewVerificationDocument = asyncHandler(
     return res.json({
       message:
         status === "VERIFIED"
-          ? "Verification document approved."
-          : "Verification document rejected.",
+          ? "PG listing verification document approved."
+          : "PG listing verification document rejected.",
       document,
     });
   }
