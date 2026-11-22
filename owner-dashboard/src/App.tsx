@@ -15,75 +15,38 @@ import PendingListings from "./pages/admin/PendingListings";
 import OwnerVerification from "./pages/admin/OwnerVerification";
 import AdminPlaceholder from "./pages/admin/AdminPlaceholder";
 
+import Payments from "./pages/admin/Payments";
+import Subscriptions from "./pages/admin/Subscriptions";
+import SubscriptionPricing from "./pages/admin/SubscriptionPricing";
+
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
 
-        {/* Protected Admin Routes */}
         <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
 
-            <Route
-              path="listings/pending"
-              element={<PendingListings />}
-            />
+            <Route path="listings/pending" element={<PendingListings />} />
+            <Route path="owners/verification" element={<OwnerVerification />} />
 
-            <Route
-              path="owners/verification"
-              element={<OwnerVerification />}
-            />
+            <Route path="owners" element={<AdminPlaceholder />} />
+            <Route path="users" element={<AdminPlaceholder />} />
+            <Route path="enquiries" element={<AdminPlaceholder />} />
 
-            <Route
-              path="owners"
-              element={<AdminPlaceholder />}
-            />
+            <Route path="payments" element={<Payments />} />
+            <Route path="subscriptions" element={<Subscriptions />} />
+            <Route path="subscription-pricing" element={<SubscriptionPricing />} />
 
-            <Route
-              path="users"
-              element={<AdminPlaceholder />}
-            />
-
-            <Route
-              path="enquiries"
-              element={<AdminPlaceholder />}
-            />
-
-            <Route
-              path="payments"
-              element={<AdminPlaceholder />}
-            />
-
-            <Route
-              path="subscriptions"
-              element={<AdminPlaceholder />}
-            />
-
-            <Route
-              path="reports"
-              element={<AdminPlaceholder />}
-            />
-
-            <Route
-              path="settings"
-              element={<AdminPlaceholder />}
-            />
+            <Route path="reports" element={<AdminPlaceholder />} />
+            <Route path="settings" element={<AdminPlaceholder />} />
           </Route>
         </Route>
 
-        {/* Default Routes */}
-        <Route
-          path="/"
-          element={<Navigate to="/login" replace />}
-        />
-
-        <Route
-          path="*"
-          element={<Navigate to="/login" replace />}
-        />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

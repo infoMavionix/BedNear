@@ -404,6 +404,22 @@ model Subscription {
   @@index([planCode, billingCycle])
 }
 
+model SubscriptionPlan {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  description   String?
+  monthlyPrice  Int
+  quarterlyPrice Int
+  features      String[] @default([])
+  isActive      Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
 // ===============================
 // PAYMENTS
 // ===============================

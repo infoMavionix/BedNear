@@ -1,5 +1,4 @@
-﻿
-import { useEffect } from "react";
+﻿import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedRoute from "../components/ProtectedRoute";
@@ -18,6 +17,7 @@ import Enquiries from "../pages/enquiries/Enquiries";
 import Profile from "../pages/profile/Profile";
 import Subscriptions from "../pages/subscriptions/Subscriptions";
 
+// Admin pages
 import AdminLayout from "../pages/admin/AdminLayout";
 import AdminOverview from "../pages/admin/AdminOverview";
 import PendingListings from "../pages/admin/PendingListings";
@@ -25,6 +25,9 @@ import OwnerVerification from "../pages/admin/OwnerVerification";
 import AdminUsers from "../pages/admin/AdminUsers";
 import AdminPlaceholder from "../pages/admin/AdminPlaceholder";
 import AdminEnquiries from "../pages/admin/AdminEnquiries";
+import Payments from "../pages/admin/Payments";
+import AdminSubscriptions from "../pages/admin/Subscriptions";
+import SubscriptionPricing from "../pages/admin/SubscriptionPricing";
 
 import { updatePageTitle } from "../utils/updatePageTitle";
 
@@ -55,19 +58,16 @@ export default function AppRoutes() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
 
-          {/* PG listing approvals */}
           <Route
             path="listings/pending"
             element={<PendingListings />}
           />
 
-          {/* Owner registration document verification */}
           <Route
             path="owners/verification"
             element={<OwnerVerification />}
           />
 
-          {/* Owner and candidate account management */}
           <Route
             path="owners"
             element={<AdminUsers key="owners" defaultRole="OWNER" />}
@@ -78,10 +78,21 @@ export default function AppRoutes() {
             element={<AdminUsers key="candidates" defaultRole="CANDIDATE" />}
           />
 
-          {/* Other admin modules */}
           <Route path="enquiries" element={<AdminEnquiries />} />
-          <Route path="payments" element={<AdminPlaceholder />} />
-          <Route path="subscriptions" element={<AdminPlaceholder />} />
+
+          {/* Admin payment and subscription management */}
+          <Route path="payments" element={<Payments />} />
+
+          <Route
+            path="subscriptions"
+            element={<AdminSubscriptions />}
+          />
+
+          <Route
+            path="subscription-pricing"
+            element={<SubscriptionPricing />}
+          />
+
           <Route path="reports" element={<AdminPlaceholder />} />
           <Route path="settings" element={<AdminPlaceholder />} />
         </Route>
@@ -92,13 +103,11 @@ export default function AppRoutes() {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
 
-          {/* PG listing management */}
           <Route path="/listings" element={<Listings />} />
           <Route path="/listings/new" element={<CreateListing />} />
           <Route path="/listings/:id/edit" element={<CreateListing />} />
           <Route path="/listings/:id" element={<ListingDetails />} />
 
-          {/* Other owner pages */}
           <Route path="/rooms" element={<Rooms />} />
           <Route path="/beds" element={<Beds />} />
           <Route path="/enquiries" element={<Enquiries />} />
@@ -113,7 +122,7 @@ export default function AppRoutes() {
         </Route>
       </Route>
 
-      {/* Start at login */}
+      {/* Default route */}
       <Route
         path="/"
         element={<Navigate to="/login" replace />}

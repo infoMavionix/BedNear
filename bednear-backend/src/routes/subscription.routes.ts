@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import authMiddleware, {
@@ -10,6 +9,8 @@ import {
   getMySubscriptions,
   createSubscriptionCheckout,
   cancelPendingSubscription,
+  getFreeTrialEligibility,
+  activateFreeTrial,
 } from "../controllers/subscription.controller";
 
 import {
@@ -29,24 +30,20 @@ router.get("/plans", getSubscriptionPlans);
 // Logged-in owner's subscriptions
 router.get("/my", getMySubscriptions);
 
-// Create a pending checkout
+// Free trial eligibility and activation (one trial per PG listing)
+router.get("/trial-eligibility", getFreeTrialEligibility);
+router.post("/trial", activateFreeTrial);
+
+// Create a pending paid checkout
 router.post("/checkout", createSubscriptionCheckout);
 
 // Create Razorpay payment order
-router.post(
-  "/:subscriptionId/order",
-  createRazorpayOrder
-);
+router.post("/:subscriptionId/order", createRazorpayOrder);
 
 // Verify Razorpay payment and activate subscription
-router.post(
-  "/verify",
-  verifyRazorpayPayment
-);
+router.post("/verify", verifyRazorpayPayment);
+
 // Cancel an unpaid pending subscription
-router.post(
-  "/:subscriptionId/cancel",
-  cancelPendingSubscription
-);
+router.post("/:subscriptionId/cancel", cancelPendingSubscription);
 
 export default router;

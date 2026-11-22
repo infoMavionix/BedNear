@@ -1,20 +1,16 @@
-
 import { api } from "./api";
 
-// Billing cycle
 export type BillingCycle = "MONTHLY" | "QUARTERLY";
 
-// Subscription plan
 export type SubscriptionPlan = {
   planCode: string;
   planName: string;
-  description?: string;
+  description?: string | null;
   monthlyPrice: number;
   quarterlyPrice: number;
   features: string[];
 };
 
-// Owner PG listing
 export type OwnerPG = {
   id: string;
   name: string;
@@ -23,7 +19,6 @@ export type OwnerPG = {
   status: string;
 };
 
-// Subscription status
 export type SubscriptionStatus =
   | "PENDING"
   | "ACTIVE"
@@ -31,7 +26,6 @@ export type SubscriptionStatus =
   | "CANCELLED"
   | "FAILED";
 
-// Owner subscription
 export type OwnerSubscription = {
   id: string;
   planCode: string;
@@ -44,7 +38,6 @@ export type OwnerSubscription = {
   expiresAt: string | null;
   createdAt: string;
   listingId: string | null;
-
   listing?: {
     id: string;
     name: string;
@@ -53,24 +46,21 @@ export type OwnerSubscription = {
   } | null;
 };
 
-// Create subscription payload
 export type CreateSubscriptionPayload = {
   listingId: string;
   planCode: string;
   billingCycle: BillingCycle;
 };
 
-// Backend plan response
 type BackendSubscriptionPlan = {
   code: string;
   name: string;
-  description?: string;
+  description?: string | null;
   monthlyPrice: number;
   quarterlyPrice: number;
   features: string[];
 };
 
-// API responses
 type PlansResponse = {
   plans: BackendSubscriptionPlan[];
 };
@@ -91,7 +81,16 @@ export type CreateSubscriptionResponse = {
   subscription: OwnerSubscription;
 };
 
-// Razorpay order response
+export type TrialEligibilityResponse = {
+  eligible: boolean;
+  message: string;
+};
+
+export type ActivateFreeTrialResponse = {
+  message: string;
+  subscription: OwnerSubscription;
+};
+
 export type RazorpayOrderResponse = {
   message: string;
   keyId: string;
@@ -106,7 +105,6 @@ export type RazorpayOrderResponse = {
   orderStatus?: string;
 };
 
-// Razorpay verification payload
 export type VerifyRazorpayPaymentPayload = {
   subscriptionId: string;
   razorpay_order_id: string;
@@ -114,17 +112,13 @@ export type VerifyRazorpayPaymentPayload = {
   razorpay_signature: string;
 };
 
-// Razorpay verification response
 export type VerifyRazorpayPaymentResponse = {
   message: string;
   subscription: OwnerSubscription;
 };
 
-// GET subscription plans
 export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
-  const response = await api.get<PlansResponse>(
-    "/subscriptions/plans"
-  );
+  const response = await api.get<PlansResponse>("/subscriptions/plans");
 
   return (response.data.plans ?? []).map((plan) => ({
     planCode: plan.code,
@@ -136,25 +130,36 @@ export async function getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
   }));
 }
 
-// GET owner PG listings
 export async function getOwnerPGs(): Promise<OwnerPG[]> {
-  const response = await api.get<ListingsResponse>(
-    "/listings"
-  );
-
+  const response = await api.get<ListingsResponse>("/listings");
   return response.data.listings ?? [];
 }
 
-// GET owner subscription history
 export async function getOwnerSubscriptions(): Promise<OwnerSubscription[]> {
-  const response = await api.get<SubscriptionsResponse>(
-    "/subscriptions/my"
-  );
-
+  const response = await api.get<SubscriptionsResponse>("/subscriptions/my");
   return response.data.subscriptions ?? [];
 }
 
-// POST create pending subscription checkout
+export async function getFreeTrialEligibility(
+  listingId: string
+): Promise<TrialEligibilityResponse> {
+  const response = await api.get<TrialEligibilityResponse>(
+    "/subscriptions/trial-eligibility",
+    { params: { listingId } }
+  );
+  return response.data;
+}
+
+export async function activateFreeTrial(
+  listingId: string
+): Promise<ActivateFreeTrialResponse> {
+  const response = await api.post<ActivateFreeTrialResponse>(
+    "/subscriptions/trial",
+    { listingId }
+  );
+  return response.data;
+}
+
 export async function createSubscription(
   payload: CreateSubscriptionPayload
 ): Promise<CreateSubscriptionResponse> {
@@ -162,22 +167,18 @@ export async function createSubscription(
     "/subscriptions/checkout",
     payload
   );
-
   return response.data;
 }
 
-// POST create Razorpay order
 export async function createRazorpayOrder(
   subscriptionId: string
 ): Promise<RazorpayOrderResponse> {
   const response = await api.post<RazorpayOrderResponse>(
     `/subscriptions/${subscriptionId}/order`
   );
-
   return response.data;
 }
 
-// POST verify Razorpay payment
 export async function verifyRazorpayPayment(
   payload: VerifyRazorpayPaymentPayload
 ): Promise<VerifyRazorpayPaymentResponse> {
@@ -185,17 +186,12 @@ export async function verifyRazorpayPayment(
     "/subscriptions/verify",
     payload
   );
-
   return response.data;
 }
 
-// POST cancel pending subscription
-export async function cancelOwnerSubscription(
-  subscriptionId: string
-) {
+export async function cancelOwnerSubscription(subscriptionId: string) {
   const response = await api.post(
     `/subscriptions/${subscriptionId}/cancel`
   );
-
   return response.data;
 }

@@ -10,54 +10,9 @@ type AuthenticatedRequest = Request & {
   userId?: string;
 };
 
-const plans = [
-  {
-    code: "STARTER",
-    name: "Starter",
-    description: "Essential visibility for your PG property.",
-    monthlyPrice: 99,
-    quarterlyPrice: 297,
-    features: [
-      "One PG listing",
-      "Basic PG profile and photos",
-      "Location and contact details",
-      "Receive candidate enquiries",
-      "Standard listing visibility",
-    ],
-  },
-  {
-    code: "GROWTH",
-    name: "Growth",
-    description: "More tools to manage and promote your PG.",
-    monthlyPrice: 149,
-    quarterlyPrice: 447,
-    features: [
-      "Everything in Starter",
-      "More listing photos",
-      "Listing performance analytics",
-      "Improved listing visibility",
-      "Enquiry tracking",
-    ],
-  },
-  {
-    code: "PREMIUM",
-    name: "Premium",
-    description: "Additional promotion and visibility for your PG.",
-    monthlyPrice: 249,
-    quarterlyPrice: 747,
-    features: [
-      "Everything in Growth",
-      "Featured PG listing",
-      "Priority listing visibility",
-      "Premium promotional placement",
-      "Detailed enquiry analytics",
-    ],
-  },
-] as const;
-
 const checkoutSchema = z.object({
   listingId: z.string().min(1, "Please select a PG."),
-  planCode: z.enum(["STARTER", "GROWTH", "PREMIUM"]),
+  planCode: z.string().trim().min(2).max(40),
   billingCycle: z.enum(["MONTHLY", "QUARTERLY"]),
 });
 
@@ -102,19 +57,16 @@ type CheckoutResult =
 // GET /api/v1/subscriptions/plans
 export const getSubscriptionPlans = asyncHandler(
   async (_req, res) => {
+    const plans = await prisma.subscriptionPlan.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "asc" },
+    });
+
     return res.json({
       plans,
       billingCycles: [
-        {
-          code: "MONTHLY",
-          label: "Monthly",
-          durationDays: 30,
-        },
-        {
-          code: "QUARTERLY",
-          label: "Quarterly",
-          durationDays: 90,
-        },
+        { code: "MONTHLY", label: "Monthly", durationDays: 30 },
+        { code: "QUARTERLY", label: "Quarterly", durationDays: 90 },
       ],
     });
   }
@@ -202,14 +154,23 @@ export const createSubscriptionCheckout = asyncHandler(
       });
     }
 
-    // Find the selected plan.
-    const selectedPlan = plans.find(
-      (plan) => plan.code === planCode
-    );
+    // Always read current pricing from the database.
+    const selectedPlan = await prisma.subscriptionPlan.findFirst({
+      where: {
+        code: planCode,
+        isActive: true,
+      },
+    });
 
     if (!selectedPlan) {
       return res.status(400).json({
-        message: "Invalid subscription plan.",
+        message: "Invalid or inactive subscription plan.",
+      });
+    }
+
+    if (selectedPlan.code === "FREE_TRIAL" || selectedPlan.monthlyPrice <= 0 || selectedPlan.quarterlyPrice <= 0) {
+      return res.status(400).json({
+        message: "Free trials must be activated through the free-trial endpoint.",
       });
     }
 
@@ -551,6 +512,171 @@ export const cancelPendingSubscription = asyncHandler(
   }
 );
 
+// GET /api/v1/subscriptions/trial-eligibility?listingId=...
+export const getFreeTrialEligibility = asyncHandler(
+  async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Please log in again." });
+    }
+
+    const listingId =
+      typeof req.query.listingId === "string"
+        ? req.query.listingId
+        : "";
+
+    if (!listingId) {
+      return res.status(400).json({
+        message: "A valid listingId is required.",
+      });
+    }
+
+    const listing = await prisma.listing.findFirst({
+      where: { id: listingId, ownerId: userId },
+      select: { id: true },
+    });
+
+    if (!listing) {
+      return res.status(404).json({
+        message: "PG listing not found for this owner.",
+      });
+    }
+
+    const previousTrial = await prisma.subscription.findFirst({
+      where: { listingId, planCode: "FREE_TRIAL" },
+      select: { id: true },
+    });
+
+    return res.json({
+      eligible: !previousTrial,
+      message: previousTrial
+        ? "This PG listing has already used its free trial."
+        : "This PG listing is eligible for a 30-day free trial.",
+    });
+  }
+);
+
+// POST /api/v1/subscriptions/trial
+// One free 30-day trial per PG listing. No payment record or Razorpay order.
+export const activateFreeTrial = asyncHandler(
+  async (req, res) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Please log in again." });
+    }
+
+    const parsed = z.object({
+      listingId: z.string().min(1),
+    }).safeParse(req.body);
+
+    if (!parsed.success) {
+      return res.status(400).json({
+        message: "Please select a valid PG listing.",
+        errors: parsed.error.flatten(),
+      });
+    }
+
+    const { listingId } = parsed.data;
+
+    const listing = await prisma.listing.findFirst({
+      where: { id: listingId, ownerId: userId },
+      select: { id: true, name: true },
+    });
+
+    if (!listing) {
+      return res.status(404).json({
+        message: "PG listing not found for this owner.",
+      });
+    }
+
+    try {
+      const subscription = await prisma.$transaction(
+        async (tx) => {
+          const previousTrial = await tx.subscription.findFirst({
+            where: { listingId, planCode: "FREE_TRIAL" },
+            select: { id: true },
+          });
+
+          if (previousTrial) {
+            throw new Error("FREE_TRIAL_ALREADY_USED");
+          }
+
+          const existingSubscription = await tx.subscription.findFirst({
+            where: {
+              userId,
+              listingId,
+              status: { in: ["ACTIVE", "PENDING"] },
+            },
+            select: { id: true },
+          });
+
+          if (existingSubscription) {
+            throw new Error("SUBSCRIPTION_ALREADY_EXISTS");
+          }
+
+          const now = new Date();
+          const expiresAt = new Date(now);
+          expiresAt.setDate(expiresAt.getDate() + 30);
+
+          return tx.subscription.create({
+            data: {
+              userId,
+              listingId,
+              planCode: "FREE_TRIAL",
+              planName: "Free Trial",
+              billingCycle: "MONTHLY",
+              amount: 0,
+              currency: "INR",
+              status: "ACTIVE",
+              startsAt: now,
+              expiresAt,
+            },
+            include: {
+              listing: {
+                select: { id: true, name: true },
+              },
+              payments: {
+                orderBy: { createdAt: "desc" },
+              },
+            },
+          });
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        }
+      );
+
+      return res.status(201).json({
+        message: "Your 30-day free trial has been activated successfully.",
+        subscription,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "FREE_TRIAL_ALREADY_USED") {
+        return res.status(409).json({
+          message: "This PG listing has already used its free trial.",
+        });
+      }
+
+      if (error instanceof Error && error.message === "SUBSCRIPTION_ALREADY_EXISTS") {
+        return res.status(409).json({
+          message: "This PG already has an active subscription or pending checkout.",
+        });
+      }
+
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2034"
+      ) {
+        return res.status(409).json({
+          message: "The trial request is being processed. Please refresh and try again.",
+        });
+      }
+
+      throw error;
+    }
+  }
+);
+
 // GET /api/v1/admin/subscriptions
 export const getAdminSubscriptions = asyncHandler(
   async (req, res) => {
@@ -681,11 +807,16 @@ export const getAdminSubscriptions = asyncHandler(
   }
 );
 
+
+
+
+
 // GET /api/v1/admin/subscriptions/summary
 export const getAdminSubscriptionSummary = asyncHandler(
   async (_req, res) => {
     const now = new Date();
 
+    // First day of the current month
     const monthStart = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -697,12 +828,15 @@ export const getAdminSubscriptionSummary = asyncHandler(
       activeSubscriptions,
       pendingSubscriptions,
       expiredSubscriptions,
+      cancelledSubscriptions,
       failedSubscriptions,
       successfulPayments,
       monthlyPayments,
     ] = await Promise.all([
+      // Total subscriptions
       prisma.subscription.count(),
 
+      // Active subscriptions that have not expired
       prisma.subscription.count({
         where: {
           status: "ACTIVE",
@@ -712,12 +846,15 @@ export const getAdminSubscriptionSummary = asyncHandler(
         },
       }),
 
+      // Pending subscriptions
       prisma.subscription.count({
         where: {
           status: "PENDING",
         },
       }),
 
+      // Expired subscriptions, including active records
+      // whose expiry date has passed
       prisma.subscription.count({
         where: {
           OR: [
@@ -734,12 +871,21 @@ export const getAdminSubscriptionSummary = asyncHandler(
         },
       }),
 
+      // Cancelled subscriptions
+      prisma.subscription.count({
+        where: {
+          status: "CANCELLED",
+        },
+      }),
+
+      // Failed subscriptions
       prisma.subscription.count({
         where: {
           status: "FAILED",
         },
       }),
 
+      // All successful payments
       prisma.payment.aggregate({
         where: {
           status: "SUCCESS",
@@ -752,6 +898,7 @@ export const getAdminSubscriptionSummary = asyncHandler(
         },
       }),
 
+      // Successful payments for the current month
       prisma.payment.aggregate({
         where: {
           status: "SUCCESS",
@@ -769,16 +916,29 @@ export const getAdminSubscriptionSummary = asyncHandler(
     ]);
 
     return res.json({
+      success: true,
+
       summary: {
         totalSubscriptions,
         activeSubscriptions,
         pendingSubscriptions,
         expiredSubscriptions,
+        cancelledSubscriptions,
         failedSubscriptions,
+
+        // Total successful payment revenue
         totalRevenue: successfulPayments._sum.amount ?? 0,
-        successfulPaymentCount: successfulPayments._count.id,
+
+        successfulPaymentCount:
+          successfulPayments._count.id,
+
+        // Current month revenue
         monthlyRevenue: monthlyPayments._sum.amount ?? 0,
-        monthlyPaymentCount: monthlyPayments._count.id,
+
+        monthlyPaymentCount:
+          monthlyPayments._count.id,
+
+        currency: "INR",
       },
     });
   }

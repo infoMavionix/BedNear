@@ -34,6 +34,15 @@ import {
   getAdminSubscriptionSummary,
 } from "../controllers/subscription.controller";
 
+import { getAdminPayments } from "../controllers/adminPayment.controller";
+
+import {
+  getAdminSubscriptionPlans,
+  createAdminSubscriptionPlan,
+  updateAdminSubscriptionPlan,
+  updateAdminSubscriptionPlanStatus,
+} from "../controllers/adminSubscriptionPlan.controller";
+
 const router = Router();
 
 // All routes require a valid ADMIN account.
@@ -51,6 +60,18 @@ router.get(
 router.get(
   "/subscriptions",
   getAdminSubscriptions
+);
+
+// Payment management
+router.get("/payments", getAdminPayments);
+
+// Subscription pricing management
+router.get("/subscription-plans", getAdminSubscriptionPlans);
+router.post("/subscription-plans", createAdminSubscriptionPlan);
+router.put("/subscription-plans/:id", updateAdminSubscriptionPlan);
+router.patch(
+  "/subscription-plans/:id/status",
+  updateAdminSubscriptionPlanStatus
 );
 
 // PG listing approvals

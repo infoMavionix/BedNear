@@ -1,5 +1,4 @@
-﻿
-import { useState } from "react";
+﻿import { useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import {
@@ -17,6 +16,7 @@ import {
   X,
   LogOut,
   ShieldCheck,
+  Tags,
 } from "lucide-react";
 
 import "./Admin.css";
@@ -65,6 +65,11 @@ const navigation = [
     icon: CalendarCheck,
   },
   {
+    label: "Subscription Pricing",
+    path: "/admin/subscription-pricing",
+    icon: Tags,
+  },
+  {
     label: "Reports",
     path: "/admin/reports",
     icon: BarChart3,
@@ -81,7 +86,6 @@ export default function AdminLayout() {
   const navigate = useNavigate();
 
   function handleLogout() {
-    // Clear the current BedNear session.
     sessionStorage.removeItem("bednear_token");
     sessionStorage.removeItem("jwt");
     sessionStorage.removeItem("bednear_user");
@@ -89,7 +93,6 @@ export default function AdminLayout() {
     localStorage.removeItem("jwt");
     localStorage.removeItem("bednear_token");
 
-    // Return to login and prevent going back to admin page.
     setSidebarOpen(false);
     navigate("/login", { replace: true });
   }
@@ -133,37 +136,31 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        <div className="admin-nav-label">
-          WORKSPACE
-        </div>
+        <div className="admin-nav-label">WORKSPACE</div>
 
         {/* Navigation */}
         <nav className="admin-navigation">
-          {navigation.map(
-            ({ label, path, icon: Icon, end }) => (
-              <NavLink
-                key={path}
-                to={path}
-                end={end}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `admin-nav-link ${
-                    isActive ? "admin-nav-link-active" : ""
-                  }`
-                }
-              >
-                <Icon size={19} strokeWidth={1.9} />
+          {navigation.map(({ label, path, icon: Icon, end }) => (
+            <NavLink
+              key={path}
+              to={path}
+              end={end}
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `admin-nav-link ${
+                  isActive ? "admin-nav-link-active" : ""
+                }`
+              }
+            >
+              <Icon size={19} strokeWidth={1.9} />
 
-                <span>{label}</span>
+              <span>{label}</span>
 
-                {label === "PG Approvals" && (
-                  <span className="admin-nav-arrow">
-                    ›
-                  </span>
-                )}
-              </NavLink>
-            )
-          )}
+              {label === "PG Approvals" && (
+                <span className="admin-nav-arrow">›</span>
+              )}
+            </NavLink>
+          ))}
         </nav>
 
         {/* Sidebar footer */}

@@ -14,10 +14,13 @@ import {
   ArrowRight,
   RefreshCw,
   XCircle,
+  Gift,
 } from "lucide-react";
 
 import {
   cancelOwnerSubscription,
+  activateFreeTrial,
+  getFreeTrialEligibility,
   createSubscription,
   createRazorpayOrder,
   verifyRazorpayPayment,
@@ -171,6 +174,9 @@ export default function Subscriptions() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [trialEligible, setTrialEligible] = useState(false);
+  const [trialEligibilityLoading, setTrialEligibilityLoading] = useState(false);
+  const [activatingTrial, setActivatingTrial] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -242,6 +248,40 @@ export default function Subscriptions() {
     [listings, selectedListingId]
   );
 
+  // Check whether the selected PG listing has already used its free trial.
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkTrialEligibility() {
+      if (!selectedListingId) {
+        setTrialEligible(false);
+        return;
+      }
+
+      setTrialEligibilityLoading(true);
+
+      try {
+        const result = await getFreeTrialEligibility(selectedListingId);
+        if (mounted) setTrialEligible(result.eligible);
+      } catch (err: unknown) {
+        if (mounted) {
+          setTrialEligible(false);
+          setError(
+            getErrorMessage(err, "Unable to check free-trial eligibility.")
+          );
+        }
+      } finally {
+        if (mounted) setTrialEligibilityLoading(false);
+      }
+    }
+
+    void checkTrialEligibility();
+
+    return () => {
+      mounted = false;
+    };
+  }, [selectedListingId]);
+
   const existingActiveSubscription = useMemo(
     () =>
       subscriptions.find(
@@ -265,6 +305,52 @@ export default function Subscriptions() {
   async function refreshSubscriptions() {
     const updatedSubscriptions = await getOwnerSubscriptions();
     setSubscriptions(updatedSubscriptions);
+  }
+
+  // Activate one free 30-day trial for the selected PG listing.
+  async function handleActivateTrial() {
+    setError("");
+    setSuccess("");
+
+    if (!selectedListingId) {
+      setError("Please select a PG listing first.");
+      return;
+    }
+
+    if (existingActiveSubscription) {
+      setError("This PG already has an active subscription.");
+      return;
+    }
+
+    if (!trialEligible) {
+      setError("This PG listing is not eligible for another free trial.");
+      return;
+    }
+
+    setActivatingTrial(true);
+
+    try {
+      const response = await activateFreeTrial(selectedListingId);
+      setSuccess(response.message);
+      setTrialEligible(false);
+      await refreshSubscriptions();
+    } catch (err: unknown) {
+      setError(
+        getErrorMessage(err, "Unable to activate the free trial.")
+      );
+
+      // Re-check eligibility in case another request used the trial.
+      try {
+        const eligibility = await getFreeTrialEligibility(selectedListingId);
+        setTrialEligible(eligibility.eligible);
+      } catch {
+        // Preserve the original activation error.
+      }
+
+      await refreshSubscriptions().catch(() => undefined);
+    } finally {
+      setActivatingTrial(false);
+    }
   }
 
   // Continue to Razorpay payment
@@ -710,7 +796,71 @@ export default function Subscriptions() {
         </div>
 
         <div className="subscription-plans-grid">
-          {plans.map((plan) => {
+          <article className="subscription-plan-card subscription-free-trial-card">
+            <div className="subscription-plan-top">
+              <div>
+                <span className="subscription-plan-kicker">BEDNEAR FREE TRIAL</span>
+                <h3>Free Trial</h3>
+              </div>
+              <div className="subscription-plan-icon">
+                <Gift size={22} />
+              </div>
+            </div>
+
+            <div className="subscription-plan-price">
+              <strong>{formatMoney(0)}</strong>
+              <span>/ 30 days</span>
+            </div>
+
+            <p className="subscription-quarterly-note">
+              Try BedNear for one month. No payment details required.
+            </p>
+
+            <div className="subscription-plan-divider" />
+
+            <ul>
+              <li><Check size={16} /><span>One PG listing</span></li>
+              <li><Check size={16} /><span>Basic PG profile and photos</span></li>
+              <li><Check size={16} /><span>Location and contact details</span></li>
+              <li><Check size={16} /><span>Receive candidate enquiries</span></li>
+              <li><Check size={16} /><span>Standard listing visibility</span></li>
+              <li><Check size={16} /><span>30 days free access</span></li>
+            </ul>
+
+            <button
+              type="button"
+              className="subscription-select-plan"
+              onClick={() => void handleActivateTrial()}
+              disabled={
+                activatingTrial ||
+                trialEligibilityLoading ||
+                !trialEligible ||
+                !selectedListing ||
+                Boolean(existingActiveSubscription) ||
+                submitting
+              }
+            >
+              {activatingTrial ? (
+                <>
+                  <LoaderCircle className="subscription-spin" size={17} />
+                  Activating...
+                </>
+              ) : trialEligibilityLoading ? (
+                "Checking eligibility..."
+              ) : existingActiveSubscription ? (
+                "PG already subscribed"
+              ) : trialEligible ? (
+                "Activate Free Trial"
+              ) : (
+                "Free Trial Already Used"
+              )}
+            </button>
+            <p className="subscription-payment-note">
+              Available once per PG listing.
+            </p>
+          </article>
+
+          {plans.filter((plan) => plan.planCode !== "FREE_TRIAL").map((plan) => {
             const planPrice =
               billingCycle === "MONTHLY"
                 ? plan.monthlyPrice
