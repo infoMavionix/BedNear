@@ -15,15 +15,15 @@
     "android": {
       "package": "com.bednear.app",
       "softwareKeyboardLayoutMode": "resize",
+      "navigationBar": {
+        "backgroundColor": "#FFFFFF",
+        "barStyle": "dark-content",
+        "enforceContrast": false
+      },
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",
         "backgroundColor": "#5B21B6"
       }
-    },
-    "androidNavigationBar": {
-      "backgroundColor": "#FFFFFF",
-      "barStyle": "dark-content",
-      "enforceContrast": false
     },
     "plugins": [
       "expo-secure-store",
@@ -32,8 +32,7 @@
         {
           "locationWhenInUsePermission": "Allow BedNear to access your location to show nearby PG accommodations."
         }
-      ],
-      "expo-font"
+      ]
     ]
   }
 }

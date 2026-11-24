@@ -1,5 +1,6 @@
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+
 import {
   ActivityIndicator,
   Image,
@@ -13,17 +14,25 @@ import MapView, { Marker, Region } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useQuery } from '@tanstack/react-query';
+
 import {
   RouteProp,
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
+
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '../../constants/theme';
 import { getListings } from '../../services/listing.service';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { Listing } from '../../types/listing';
+
+// --------------------------------------------------
+// TYPES
+// --------------------------------------------------
 
 type MapRoute = RouteProp<RootStackParamList, 'MapSearch'>;
 
@@ -33,24 +42,31 @@ type GeoListing = {
   longitude: number;
 };
 
-type GeoGroup = {
-  id: string;
-  latitude: number;
-  longitude: number;
-  listings: GeoListing[];
+type MarkerProps = {
+  item: GeoListing;
+  selected: boolean;
+  onPress: () => void;
 };
 
-const INITIAL_REGION: Region = {
+// --------------------------------------------------
+// DEFAULT MAP REGION
+// --------------------------------------------------
+
+const BENGALURU_REGION: Region = {
   latitude: 12.9716,
   longitude: 77.5946,
-  latitudeDelta: 0.18,
-  longitudeDelta: 0.18,
+  latitudeDelta: 0.12,
+  longitudeDelta: 0.12,
 };
+
+// --------------------------------------------------
+// GET LISTING COORDINATES
+// --------------------------------------------------
 
 function getCoordinates(item: Listing) {
   const raw = item as Listing & {
-    latitude?: number | string | null;
-    longitude?: number | string | null;
+    latitude?: number | string;
+    longitude?: number | string;
     lat?: number | string;
     lng?: number | string;
     location?: {
@@ -63,16 +79,16 @@ function getCoordinates(item: Listing) {
 
   const latitude = Number(
     raw.latitude ??
-      raw.lat ??
-      raw.location?.latitude ??
-      raw.location?.lat
+    raw.lat ??
+    raw.location?.latitude ??
+    raw.location?.lat
   );
 
   const longitude = Number(
     raw.longitude ??
-      raw.lng ??
-      raw.location?.longitude ??
-      raw.location?.lng
+    raw.lng ??
+    raw.location?.longitude ??
+    raw.location?.lng
   );
 
   if (
@@ -90,229 +106,184 @@ function getCoordinates(item: Listing) {
   return { latitude, longitude };
 }
 
-function formatRent(rent: number) {
-  return `₹${Number(rent || 0).toLocaleString('en-IN')}`;
+// --------------------------------------------------
+// PRICE MARKER
+// --------------------------------------------------
+
+function PriceMarker({
+  item,
+  selected,
+  onPress,
+}: MarkerProps) {
+  return (
+    <Marker
+      coordinate={{
+        latitude: item.latitude,
+        longitude: item.longitude,
+      }}
+      onPress={onPress}
+      tracksViewChanges={false}
+      zIndex={selected ? 10 : 1}
+    >
+      <View
+        style={[
+          styles.marker,
+          selected && styles.markerSelected,
+        ]}
+      >
+        <Text
+          style={[
+            styles.markerText,
+            selected && styles.markerTextSelected,
+          ]}
+        >
+          ₹{item.listing.rent.toLocaleString('en-IN')}
+        </Text>
+      </View>
+    </Marker>
+  );
 }
 
+// --------------------------------------------------
+// MAP SEARCH SCREEN
+// --------------------------------------------------
+
 export default function MapSearchScreen() {
+  const insets = useSafeAreaInsets();
+
   const navigation =
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const route = useRoute<MapRoute>();
 
-  const { locality = '' } = route.params ?? {};
+  // Safe area positioning
+  const topBarTop = insets.top + 14;
+  const countTop = topBarTop + 56;
 
-  const mapRef = React.useRef<MapView>(null);
+  // Search filters
+  const {
+    locality = '',
+    sharing = 'Any',
+    maxRent = 10000,
+    gender = 'Any',
+    accommodationType = 'Any',
+  } = route.params ?? {};
 
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
-  const [mapReady, setMapReady] = React.useState(false);
+  // Selected listing
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // --------------------------------------------------
+  // FETCH LISTINGS
+  // --------------------------------------------------
 
   const query = useQuery({
-    queryKey: ['map-all-published-listings', locality.trim().toLowerCase()],
+    queryKey: [
+      'map-listings',
+      locality,
+      sharing,
+      maxRent,
+      gender,
+      accommodationType,
+    ],
 
-    // Only use the searched locality.
-    // Do not apply the default rent, gender or sharing filters here.
     queryFn: () =>
       getListings({
         locality: locality.trim() || undefined,
+        sharing,
+        maxRent,
+        gender,
+        accommodationType,
       }),
 
     retry: 1,
   });
 
-  const allListings = query.data ?? [];
+  // --------------------------------------------------
+  // PROCESS LISTINGS
+  // --------------------------------------------------
 
-  // Convert listings into valid map coordinates.
-  const geoListings: GeoListing[] = React.useMemo(() => {
-    return allListings
+  const geoListings: GeoListing[] = useMemo(() => {
+    return (query.data ?? [])
       .map((listing) => {
         const coordinates = getCoordinates(listing);
 
-        if (!coordinates) return null;
-
-        return {
-          listing,
-          ...coordinates,
-        };
+        return coordinates
+          ? { listing, ...coordinates }
+          : null;
       })
-      .filter((item): item is GeoListing => item !== null);
-  }, [allListings]);
+      .filter(
+        (item): item is GeoListing => item !== null
+      );
+  }, [query.data]);
 
-  // Group only listings that have exactly the same coordinates.
-  // This prevents markers from hiding behind one another.
-  const groupedListings: GeoGroup[] = React.useMemo(() => {
-    const groups = new Map<string, GeoGroup>();
+  // --------------------------------------------------
+  // SELECTED LISTING
+  // --------------------------------------------------
 
-    geoListings.forEach((item) => {
-      const key =
-        `${item.latitude.toFixed(6)},${item.longitude.toFixed(6)}`;
+  const selected =
+    geoListings.find(
+      (item) => item.listing.id === selectedId
+    ) ?? geoListings[0] ?? null;
 
-      const existing = groups.get(key);
-
-      if (existing) {
-        existing.listings.push(item);
-      } else {
-        groups.set(key, {
-          id: key,
-          latitude: item.latitude,
-          longitude: item.longitude,
-          listings: [item],
-        });
-      }
-    });
-
-    return Array.from(groups.values());
-  }, [geoListings]);
-
-  // Initially select the first PG for the bottom preview.
-  // This does not control the map's center or zoom.
-  const selected = React.useMemo(() => {
-    return (
-      geoListings.find((item) => item.listing.id === selectedId) ??
-      geoListings[0] ??
-      null
+  // Reset selection when filter results change
+  useEffect(() => {
+    const selectionExists = geoListings.some(
+      (item) => item.listing.id === selectedId
     );
+
+    if (!selectionExists) {
+      setSelectedId(geoListings[0]?.listing.id ?? null);
+    }
   }, [geoListings, selectedId]);
 
-  React.useEffect(() => {
-    if (!selected && selectedId !== null) {
-      setSelectedId(null);
-    }
-  }, [selected, selectedId]);
+  // --------------------------------------------------
+  // OPEN LISTING DETAILS
+  // --------------------------------------------------
 
-  // Fit the map around ALL available PG locations.
-  // A minimum zoom range prevents excessive zooming into one property.
-  React.useEffect(() => {
-    if (!mapReady || query.isLoading || query.isError) {
-      return;
-    }
-
-    if (geoListings.length === 0) {
-      return;
-    }
-
-    const latitudes = geoListings.map((item) => item.latitude);
-    const longitudes = geoListings.map((item) => item.longitude);
-
-    const minLat = Math.min(...latitudes);
-    const maxLat = Math.max(...latitudes);
-    const minLng = Math.min(...longitudes);
-    const maxLng = Math.max(...longitudes);
-
-    const centerLatitude = (minLat + maxLat) / 2;
-    const centerLongitude = (minLng + maxLng) / 2;
-
-    // Keep a reasonable viewing area when listings are close together.
-    const latitudeDelta = Math.max(
-      (maxLat - minLat) * 2.5,
-      0.025
-    );
-
-    const longitudeDelta = Math.max(
-      (maxLng - minLng) * 2.5,
-      0.025
-    );
-
-    const region: Region = {
-      latitude: centerLatitude,
-      longitude: centerLongitude,
-      latitudeDelta: Math.min(latitudeDelta, 0.5),
-      longitudeDelta: Math.min(longitudeDelta, 0.5),
-    };
-
-    // Small delay allows the native map to finish laying out.
-    const timer = setTimeout(() => {
-      mapRef.current?.animateToRegion(region, 700);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [mapReady, geoListings, query.isLoading, query.isError]);
-
-  function openListing(item: Listing) {
+  function showListing(item: Listing) {
     navigation.navigate('ListingDetails', {
       listingId: item.id,
     });
   }
 
-  // When a marker represents multiple PGs, cycle through them.
-  function handleGroupPress(group: GeoGroup) {
-    if (group.listings.length === 1) {
-      setSelectedId(group.listings[0].listing.id);
-      return;
-    }
-
-    const currentIndex = group.listings.findIndex(
-      (item) => item.listing.id === selectedId
-    );
-
-    const nextIndex =
-      currentIndex < 0
-        ? 0
-        : (currentIndex + 1) % group.listings.length;
-
-    setSelectedId(group.listings[nextIndex].listing.id);
-  }
-
-  function refreshListings() {
-    setSelectedId(null);
-    query.refetch();
-  }
+  // --------------------------------------------------
+  // RENDER
+  // --------------------------------------------------
 
   return (
     <View style={styles.screen}>
+
+      {/* MAP */}
+
       <MapView
-        ref={mapRef}
         style={StyleSheet.absoluteFill}
-        initialRegion={INITIAL_REGION}
-        onMapReady={() => setMapReady(true)}
+        initialRegion={BENGALURU_REGION}
         showsUserLocation={false}
         showsMyLocationButton={false}
-        toolbarEnabled={false}
-        loadingEnabled
+        onPress={() => setSelectedId(null)}
       >
-        {groupedListings.map((group) => {
-          const activeListing =
-            group.listings.find(
-              (item) => item.listing.id === selectedId
-            ) ?? group.listings[0];
-
-          const isSelected =
-            group.listings.some(
-              (item) => item.listing.id === selectedId
-            );
-
-          return (
-            <Marker
-              key={group.id}
-              coordinate={{
-                latitude: group.latitude,
-                longitude: group.longitude,
-              }}
-              onPress={() => handleGroupPress(group)}
-              pinColor="red"
-              zIndex={isSelected ? 100 : 1}
-            >
-              <View
-                collapsable={false}
-                style={[
-                  styles.marker,
-                  isSelected && styles.markerSelected,
-                ]}
-              >
-                <Text style={styles.markerText}>
-                  {group.listings.length > 1
-                    ? `${group.listings.length} PGs`
-                    : formatRent(activeListing.listing.rent)}
-                </Text>
-              </View>
-            </Marker>
-          );
-        })}
+        {geoListings.map((item) => (
+          <PriceMarker
+            key={item.listing.id}
+            item={item}
+            selected={selected?.listing.id === item.listing.id}
+            onPress={() => setSelectedId(item.listing.id)}
+          />
+        ))}
       </MapView>
 
-      {/* Top navigation */}
-      <View style={styles.topBar}>
+      {/* TOP SEARCH BAR */}
+
+      <View
+        style={[
+          styles.topBar,
+          { top: topBarTop },
+        ]}
+      >
+        {/* BACK BUTTON */}
+
         <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Go back"
           style={styles.roundButton}
           onPress={() => navigation.goBack()}
@@ -324,6 +295,8 @@ export default function MapSearchScreen() {
           />
         </Pressable>
 
+        {/* LOCATION */}
+
         <View style={styles.locationPill}>
           <Ionicons
             name="location-outline"
@@ -331,135 +304,121 @@ export default function MapSearchScreen() {
             color={colors.primary}
           />
 
-          <Text numberOfLines={1} style={styles.locationText}>
+          <Text
+            numberOfLines={1}
+            style={styles.locationText}
+          >
             {locality.trim() || 'Bengaluru'}
           </Text>
         </View>
 
+        {/* REFRESH */}
+
         <Pressable
-          accessibilityLabel="Refresh PG listings"
+          accessibilityRole="button"
+          accessibilityLabel="Refresh listings"
           style={styles.roundButton}
-          onPress={refreshListings}
+          onPress={() => query.refetch()}
           disabled={query.isFetching}
         >
-          {query.isFetching ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-            />
-          ) : (
-            <Ionicons
-              name="refresh-outline"
-              size={21}
-              color="#211A2A"
-            />
-          )}
+          <Ionicons
+            name="refresh-outline"
+            size={21}
+            color="#211A2A"
+          />
         </Pressable>
       </View>
 
-      {/* Listing count */}
-      <View style={styles.countPill}>
+      {/* LISTING COUNT */}
+
+      <View
+        style={[
+          styles.countPill,
+          { top: countTop },
+        ]}
+      >
         <Ionicons
           name="location"
-          size={17}
-          color="#DC2626"
+          size={16}
+          color={colors.primary}
         />
 
         <Text style={styles.countText}>
           {query.isLoading
             ? 'Finding PGs...'
-            : `${allListings.length} PGs available in ${
-                locality.trim() || 'Bengaluru'
-              }`}
+            : `${geoListings.length} PGs on map`}
         </Text>
       </View>
 
-      {/* Loading */}
+      {/* LOADING */}
+
       {query.isLoading && (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.primary} />
 
           <Text style={styles.loadingText}>
-            Loading PG locations...
+            Loading nearby PGs...
           </Text>
         </View>
       )}
 
-      {/* API error */}
+      {/* EMPTY STATE */}
+
+      {!query.isLoading &&
+        !query.isError &&
+        geoListings.length === 0 && (
+          <View style={styles.emptyCard}>
+            <Ionicons
+              name="map-outline"
+              size={28}
+              color={colors.primary}
+            />
+
+            <Text style={styles.emptyTitle}>
+              No mapped PGs yet
+            </Text>
+
+            <Text style={styles.emptyText}>
+              Matching listings need valid latitude and
+              longitude coordinates. Try the list view
+              or update the listing location.
+            </Text>
+          </View>
+        )}
+
+      {/* ERROR STATE */}
+
       {query.isError && (
-        <View style={styles.messageCard}>
+        <View style={styles.errorCard}>
           <Ionicons
             name="alert-circle-outline"
-            size={30}
-            color="#DC2626"
+            size={28}
+            color="#D94A4A"
           />
 
           <Text style={styles.emptyTitle}>
-            Could not load PG listings
+            Could not load the map listings
           </Text>
 
-          <Text style={styles.emptyText}>
-            Please check your connection and try again.
-          </Text>
-
-          <Pressable
-            onPress={() => query.refetch()}
-            style={styles.retryButton}
-          >
-            <Text style={styles.retryText}>Try again</Text>
+          <Pressable onPress={() => query.refetch()}>
+            <Text style={styles.retryText}>
+              Try again
+            </Text>
           </Pressable>
         </View>
       )}
 
-      {/* No listings */}
-      {!query.isLoading &&
-        !query.isError &&
-        allListings.length === 0 && (
-          <View style={styles.messageCard}>
-            <Ionicons
-              name="home-outline"
-              size={30}
-              color={colors.primary}
-            />
+      {/* SELECTED PG PREVIEW */}
 
-            <Text style={styles.emptyTitle}>
-              No PGs found
-            </Text>
-
-            <Text style={styles.emptyText}>
-              No published PG listings were found in this location.
-            </Text>
-          </View>
-        )}
-
-      {/* Listings without coordinates */}
-      {!query.isLoading &&
-        !query.isError &&
-        allListings.length > 0 &&
-        geoListings.length === 0 && (
-          <View style={styles.messageCard}>
-            <Ionicons
-              name="map-outline"
-              size={30}
-              color={colors.primary}
-            />
-
-            <Text style={styles.emptyTitle}>
-              PG locations unavailable
-            </Text>
-
-            <Text style={styles.emptyText}>
-              We found {allListings.length} PG listings, but they
-              do not have valid map coordinates yet.
-            </Text>
-          </View>
-        )}
-
-      {/* PG preview */}
-      {selected && !query.isLoading && !query.isError && (
-        <View style={styles.preview}>
+      {selected && !query.isLoading && (
+        <View
+          style={[
+            styles.preview,
+            { bottom: Math.max(insets.bottom, 12) + 18 },
+          ]}
+        >
           <Pressable
-            onPress={() => openListing(selected.listing)}
+            onPress={() => showListing(selected.listing)}
             style={styles.previewPressable}
           >
             <Image
@@ -469,6 +428,7 @@ export default function MapSearchScreen() {
             />
 
             <View style={styles.previewContent}>
+
               <View style={styles.previewTitleRow}>
                 <Text
                   style={styles.previewTitle}
@@ -492,39 +452,47 @@ export default function MapSearchScreen() {
               </Text>
 
               <Text style={styles.previewRent}>
-                {formatRent(selected.listing.rent)}
-                <Text style={styles.month}> / month</Text>
+                ₹{selected.listing.rent.toLocaleString('en-IN')}
+
+                <Text style={styles.month}>
+                  {' '}/ month
+                </Text>
               </Text>
 
               <Text style={styles.previewBeds}>
                 {selected.listing.availableBeds} beds available
               </Text>
 
-              <Text style={styles.viewDetails}>
-                View PG details
-              </Text>
             </View>
           </Pressable>
         </View>
       )}
+
     </View>
   );
 }
 
+// --------------------------------------------------
+// STYLES
+// --------------------------------------------------
+
 const styles = StyleSheet.create({
+
   screen: {
     flex: 1,
     backgroundColor: '#E8EDF0',
   },
 
+  // TOP BAR
+
   topBar: {
     position: 'absolute',
-    top: 14,
     left: 16,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    zIndex: 10,
   },
 
   roundButton: {
@@ -534,7 +502,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
+    elevation: 3,
   },
 
   locationPill: {
@@ -546,7 +514,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    elevation: 4,
+    elevation: 3,
   },
 
   locationText: {
@@ -555,54 +523,56 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
+  // COUNT
+
   countPill: {
     position: 'absolute',
-    top: 70,
     left: 18,
-    right: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 22,
+    gap: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
-    elevation: 4,
+    elevation: 3,
+    zIndex: 10,
   },
 
   countText: {
-    flex: 1,
     color: '#292333',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
 
-  // Red price markers
+  // MARKERS
+
   marker: {
-    minWidth: 54,
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#DC2626',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: colors.primary,
+    elevation: 4,
   },
 
   markerSelected: {
-    backgroundColor: '#991B1B',
-    borderWidth: 3,
+    backgroundColor: colors.primary,
     borderColor: '#FFFFFF',
-    elevation: 10,
   },
 
   markerText: {
-    color: '#FFFFFF',
-    fontWeight: '900',
+    color: colors.primary,
+    fontWeight: '800',
     fontSize: 12,
   },
+
+  markerTextSelected: {
+    color: '#FFFFFF',
+  },
+
+  // LOADING
 
   loading: {
     position: 'absolute',
@@ -614,7 +584,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     alignItems: 'center',
-    elevation: 5,
+    elevation: 4,
   },
 
   loadingText: {
@@ -622,7 +592,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  messageCard: {
+  // EMPTY STATE
+
+  emptyCard: {
     position: 'absolute',
     left: 20,
     right: 20,
@@ -632,13 +604,29 @@ const styles = StyleSheet.create({
     padding: 22,
     alignItems: 'center',
     gap: 10,
-    elevation: 5,
+    elevation: 4,
+  },
+
+  // ERROR STATE
+
+  errorCard: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    top: '35%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    gap: 10,
+    elevation: 4,
   },
 
   emptyTitle: {
     color: '#211A2A',
     fontSize: 17,
     fontWeight: '800',
+    textAlign: 'center',
   },
 
   emptyText: {
@@ -648,28 +636,23 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
-  retryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 20,
-    paddingHorizontal: 22,
-    paddingVertical: 10,
-    marginTop: 4,
+  retryText: {
+    color: colors.primary,
+    fontWeight: '800',
+    padding: 8,
   },
 
-  retryText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-  },
+  // PREVIEW CARD
 
   preview: {
     position: 'absolute',
     left: 14,
     right: 14,
-    bottom: 18,
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
     padding: 10,
-    elevation: 9,
+    elevation: 8,
+    zIndex: 10,
   },
 
   previewPressable: {
@@ -726,10 +709,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  viewDetails: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 2,
-  },
 });

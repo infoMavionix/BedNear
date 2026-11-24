@@ -1,13 +1,6 @@
-
 import React from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
-import {
-  Heart,
-  MapPin,
-  ArrowUpRight,
-  CarFront,
-  Footprints,
-} from 'lucide-react-native';
+import { Heart, MapPin, ArrowUpRight, CarFront, Footprints } from 'lucide-react-native';
 
 import { colors } from '../constants/theme';
 import { Listing, TravelMode } from '../types/listing';
@@ -31,20 +24,8 @@ export default function ListingCard({
   onPress,
   travelMode = 'DRIVE',
 }: Props) {
-  const saved = useFavouriteStore((state) =>
-    state.has(listing.id)
-  );
-
+  const saved = useFavouriteStore((state) => state.has(listing.id));
   const toggle = useFavouriteStore((state) => state.toggle);
-
-  const [imageError, setImageError] = React.useState(false);
-
-  // Image URL is already normalized by listing.service.ts
-  const imageUrl = listing.image?.trim() || null;
-
-  React.useEffect(() => {
-    setImageError(false);
-  }, [listing.id, imageUrl]);
 
   const route =
     travelMode === 'DRIVE'
@@ -60,54 +41,15 @@ export default function ListingCard({
       ]}
     >
       <View style={styles.imageWrap}>
-        {imageUrl && !imageError ? (
-          <Image
-            key={`${listing.id}-${imageUrl}`}
-            source={{ uri: imageUrl }}
-            style={styles.image}
-            resizeMode="cover"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <View
-            style={[
-              styles.image,
-              {
-                backgroundColor: '#EEE9FF',
-                alignItems: 'center',
-                justifyContent: 'center',
-              },
-            ]}
-          >
-            <Text
-              style={{
-                color: '#6330AB',
-                fontSize: 17,
-                fontWeight: '700',
-              }}
-            >
-              BedNear
-            </Text>
-
-            <Text
-              style={{
-                color: '#777080',
-                fontSize: 12,
-                marginTop: 5,
-              }}
-            >
-              {imageError
-                ? 'Image unavailable'
-                : 'No photo available'}
-            </Text>
-          </View>
-        )}
+        <Image
+          source={{ uri: listing.image }}
+          style={styles.image}
+          resizeMode="cover"
+        />
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={
-            saved ? 'Remove from saved PGs' : 'Save PG'
-          }
+          accessibilityLabel={saved ? 'Remove from saved PGs' : 'Save PG'}
           hitSlop={8}
           onPress={() => toggle(listing.id)}
           style={styles.heart}
@@ -146,7 +88,6 @@ export default function ListingCard({
             ) : (
               <Footprints size={16} color={colors.primary} />
             )}
-
             <Text style={styles.routeText}>
               {formatRouteDistance(route.distanceMeters)} ·{' '}
               {formatRouteDuration(route.durationSeconds)}
@@ -155,8 +96,7 @@ export default function ListingCard({
           </View>
         ) : (
           <Text style={styles.routeUnavailable}>
-            {listing.latitude != null &&
-            listing.longitude != null
+            {listing.latitude != null && listing.longitude != null
               ? 'Route details unavailable'
               : 'Route location not added yet'}
           </Text>
@@ -164,11 +104,8 @@ export default function ListingCard({
 
         <View style={styles.tags}>
           <Text style={styles.tag}>{listing.sharing}</Text>
-
           <Text style={styles.tag}>
-            {listing.gender === 'Any'
-              ? 'All genders'
-              : listing.gender}
+            {listing.gender === 'Any' ? 'All genders' : listing.gender}
           </Text>
         </View>
 
@@ -178,17 +115,13 @@ export default function ListingCard({
               {formatCurrency(listing.rent)}
               <Text style={styles.month}> / month</Text>
             </Text>
-
             <Text style={styles.deposit}>
               Deposit {formatCurrency(listing.deposit)}
             </Text>
           </View>
 
           <View style={styles.arrow}>
-            <ArrowUpRight
-              size={20}
-              color={colors.accent}
-            />
+            <ArrowUpRight size={20} color={colors.accent} />
           </View>
         </View>
       </View>
