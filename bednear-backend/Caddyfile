@@ -1,0 +1,9 @@
+:5000 {
+	reverse_proxy 127.0.0.1:5001 127.0.0.1:5002 {
+		lb_policy round_robin
+		health_uri /health
+		health_interval 5s
+		health_timeout 2s
+		lb_try_duration 5s
+	}
+}

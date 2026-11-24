@@ -65,13 +65,16 @@ app.use("/api/v1/subscriptions", subscriptionRoutes);
 // Health check
 // --------------------------------------------------
 
-app.get("/health", (_req: Request, res: Response) => {
-  return res.json({
+const INSTANCE_ID = process.env.INSTANCE_ID || `api-${PORT}`;
+
+app.get("/health", (_req, res) => {
+  res.json({
     status: "ok",
     service: "BedNear API",
+    instance: INSTANCE_ID,
+    port: PORT
   });
 });
-
 // --------------------------------------------------
 // Public listing response mapper
 // --------------------------------------------------
