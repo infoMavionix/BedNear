@@ -1,0 +1,489 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===============================
+// ENUMS
+// ===============================
+
+enum UserRole {
+  OWNER
+  CANDIDATE
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING
+  PUBLISHED
+  INACTIVE
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  VISIT_SCHEDULED
+  CLOSED
+}
+
+enum EnquiryContactMethod {
+  INTERESTED
+  CALL
+  WHATSAPP
+  VISIT
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  FAILED
+}
+
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+}
+
+
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+
+enum VerificationDocumentType {
+  OWNER_IDENTITY
+  PG_LICENSE
+  PROPERTY_OWNERSHIP
+  AUTHORIZATION_LETTER
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum OwnerVerificationStatus {
+  PENDING_REVIEW
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  RESUBMISSION_REQUIRED
+}
+
+// ===============================
+// USER
+// ===============================
+
+model User {
+  id           String  @id @default(cuid())
+  name         String
+  email        String  @unique
+  passwordHash String
+  phone        String?
+  businessName String?
+
+  role       UserRole @default(OWNER)
+  isVerified Boolean  @default(false)
+  isActive   Boolean  @default(true)
+
+  verificationStatus OwnerVerificationStatus @default(PENDING_REVIEW)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Owner relationships
+  listings              Listing[]
+  enquiries             Enquiry[]              @relation("OwnerEnquiries")
+  verificationDocuments VerificationDocument[] @relation("OwnerVerificationDocuments")
+  ownerProfile          OwnerProfile?
+
+  // Candidate relationships
+  candidateEnquiries Enquiry[] @relation("CandidateEnquiries")
+
+  // Other relationships
+  favorites     Favorite[]
+  subscriptions Subscription[]
+  reviews       Review[]
+
+  @@index([role])
+  @@index([verificationStatus])
+}
+
+// ===============================
+// OWNER PROFILE
+// ===============================
+
+model OwnerProfile {
+  id      String @id @default(cuid())
+  ownerId String @unique
+
+  ownerType String @default("Individual Owner")
+
+  address  String?
+  locality String?
+  city     String  @default("Bengaluru")
+  state    String  @default("Karnataka")
+  pincode  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([city, locality])
+}
+
+// ===============================
+// LISTING / PG
+// ===============================
+
+model Listing {
+  id           String        @id @default(cuid())
+  name         String
+  category     String        @default("PG")
+  description  String?
+  address      String
+  locality     String
+  city         String        @default("Bengaluru")
+  state        String        @default("Karnataka")
+  pincode      String?
+  latitude     Float?
+  longitude    Float?
+  genderPolicy String        @default("Any")
+  monthlyRent  Int?
+  deposit      Int?
+  status       ListingStatus @default(DRAFT)
+
+  rejectionReason String?
+  submittedAt     DateTime?
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  rooms                 Room[]
+  images                ListingImage[]
+  amenities             ListingAmenity[]
+  enquiries             Enquiry[]
+  favorites             Favorite[]
+  verificationDocuments VerificationDocument[]
+  reviews               Review[]
+  subscriptions Subscription[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([city, locality, status])
+  @@index([status, monthlyRent])
+  @@index([genderPolicy])
+}
+
+// ===============================
+// ROOMS
+// ===============================
+
+model Room {
+  id          String @id @default(cuid())
+  name        String
+  roomType    String @default("Shared")
+  capacity    Int    @default(1)
+  monthlyRent Int?
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  beds      Bed[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listingId])
+}
+
+// ===============================
+// BEDS
+// ===============================
+
+model Bed {
+  id          String    @id @default(cuid())
+  bedNumber   String
+  status      BedStatus @default(AVAILABLE)
+  monthlyRent Int?
+
+  roomId String
+  room   Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roomId, bedNumber])
+  @@index([roomId, status])
+}
+
+// ===============================
+// LISTING IMAGES
+// ===============================
+
+model ListingImage {
+  id           String  @id @default(cuid())
+  url          String
+  storageKey   String  @unique
+  originalName String?
+  mimeType     String?
+  fileSize     Int?
+  altText      String?
+  sortOrder    Int     @default(0)
+  isCover      Boolean @default(false)
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([listingId, sortOrder])
+}
+
+// ===============================
+// AMENITIES
+// ===============================
+
+model Amenity {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  listings ListingAmenity[]
+}
+
+model ListingAmenity {
+  listingId String
+  amenityId String
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  amenity Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, amenityId])
+  @@index([amenityId])
+}
+
+// ===============================
+// ENQUIRIES
+// ===============================
+
+model Enquiry {
+  id            String  @id @default(cuid())
+  candidateName String
+  phone         String
+  email         String?
+  message       String?
+
+  preferredVisitAt DateTime?
+  visitCompletedAt DateTime?
+
+  status     EnquiryStatus @default(NEW)
+  ownerNotes String?
+
+  contactMethods EnquiryContactMethod[] @default([])
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  ownerId String
+  owner   User   @relation("OwnerEnquiries", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  candidateId String?
+  candidate   User?   @relation("CandidateEnquiries", fields: [candidateId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, status])
+  @@index([listingId, createdAt])
+  @@index([candidateId, createdAt])
+  @@index([visitCompletedAt])
+}
+
+// ===============================
+// PG REVIEWS AND RATINGS
+// ===============================
+
+model Review {
+  id      String  @id @default(cuid())
+  rating  Int
+  comment String?
+
+  candidateId String
+  listingId   String
+
+  candidate User    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([candidateId, listingId])
+  @@index([listingId, createdAt])
+  @@index([candidateId])
+}
+
+// ===============================
+// FAVORITES
+// ===============================
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([userId, createdAt])
+}
+
+// ===============================
+// SUBSCRIPTIONS
+// ===============================
+
+
+model Subscription {
+  id           String             @id @default(cuid())
+  planCode     String             @default("STARTER")
+  planName     String
+  billingCycle BillingCycle       @default(MONTHLY)
+
+  // Amount is stored in INR rupees.
+  amount       Int
+  currency     String             @default("INR")
+
+  status       SubscriptionStatus @default(PENDING)
+
+  startsAt     DateTime?
+  expiresAt    DateTime?
+
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  // Owner relationship
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  // PG relationship.
+  // Optional to preserve existing historical subscriptions.
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Restrict)
+
+  payments Payment[]
+
+  @@index([userId, status])
+  @@index([listingId, status])
+  @@index([expiresAt])
+  @@index([planCode, billingCycle])
+}
+
+model SubscriptionPlan {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  description   String?
+  monthlyPrice  Int
+  quarterlyPrice Int
+  features      String[] @default([])
+  isActive      Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// ===============================
+// PAYMENTS
+// ===============================
+
+model Payment {
+  id                String        @id @default(cuid())
+  amount            Int
+  currency          String        @default("INR")
+  status            PaymentStatus @default(PENDING)
+  provider          String?
+  providerOrderId   String?       @unique
+  providerPaymentId String?       @unique
+  receipt           String?       @unique
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+
+  @@index([subscriptionId, status])
+}
+
+// ===============================
+// VERIFICATION DOCUMENTS
+// ===============================
+
+model VerificationDocument {
+  id           String                   @id @default(cuid())
+  type         VerificationDocumentType
+  status       VerificationStatus       @default(PENDING)
+  originalName String
+  storageKey   String                   @unique
+  mimeType     String
+  fileSize     Int
+  reviewNote   String?
+  reviewedAt   DateTime?
+
+  ownerId String
+  owner   User   @relation("OwnerVerificationDocuments", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, type, status])
+  @@index([listingId, type, status])
+}
+
+// ===============================
+// PHONE OTP
+// ===============================
+
+model PhoneOtpChallenge {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@index([expiresAt])
+}

@@ -1,3 +1,4 @@
+
 # Dependencies
 node_modules/
 
@@ -6,24 +7,44 @@ node_modules/
 dist/
 web-build/
 
-# Environment variables
+# Environment variables and secrets
 .env
 .env.*
 !.env.example
 
-# Android and iOS build files
-android/
-ios/
+# Private uploads
+private-uploads/
+
+# Build output
+build/
+coverage/
+
+# Android generated files
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+
+# iOS generated files
+**/ios/Pods/
+**/ios/build/
+**/ios/DerivedData/
 
 # Signing keys
 *.jks
 *.keystore
 
-# Debug files
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
-*.log
 
-# OS files
+# IDE
+.vscode/
+.idea/
+
+# Operating system
 .DS_Store
 Thumbs.db
+
+# Archives
+*.zip
