@@ -480,4 +480,144 @@ export const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
+  // ==========================================
+  // SIGN-IN BOTTOM SHEET
+  // ==========================================
+
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(30, 18, 40, 0.48)',
+  },
+
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  signInSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 25,
+    paddingTop: 12,
+    paddingBottom: 30,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEE4F1',
+  },
+
+  sheetHandle: {
+    width: 42,
+    height: 5,
+    borderRadius: 10,
+    backgroundColor: '#DED5E5',
+    marginBottom: 20,
+  },
+
+  modalClose: {
+    position: 'absolute',
+    top: 17,
+    right: 20,
+    width: 35,
+    height: 35,
+    borderRadius: 12,
+    backgroundColor: '#F6F2F8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+
+  sheetIcon: {
+    width: 76,
+    height: 76,
+    borderRadius: 25,
+    backgroundColor: '#F1EAFB',
+    borderWidth: 1,
+    borderColor: '#E6DAF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    marginBottom: 19,
+  },
+
+  sheetTitle: {
+    color: '#251B2D',
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+    textAlign: 'center',
+    paddingHorizontal: 5,
+  },
+
+  sheetDescription: {
+    color: '#89808F',
+    fontSize: 13,
+    lineHeight: 21,
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 21,
+    paddingHorizontal: 3,
+  },
+
+  sheetBenefits: {
+    width: '100%',
+    backgroundColor: '#FAF7FC',
+    borderRadius: 16,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    gap: 14,
+    marginBottom: 22,
+  },
+
+  sheetBenefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+
+  sheetBenefitText: {
+    flex: 1,
+    color: '#62566D',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  sheetSignInButton: {
+    width: '100%',
+    minHeight: 54,
+    backgroundColor: '#6330AB',
+    borderRadius: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 15,
+  },
+
+  sheetSignInText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  sheetCancelButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+  },
+
+  sheetCancelText: {
+    color: '#81758A',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  sheetFooter: {
+    color: '#B0A6B3',
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+
+
 });
