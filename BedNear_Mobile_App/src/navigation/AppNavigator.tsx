@@ -1,10 +1,6 @@
-
 import React from "react";
 
-import {
-  NavigationContainer,
-  NavigatorScreenParams,
-} from "@react-navigation/native";
+import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,16 +25,12 @@ import ListingDetailsScreen from "../screens/listing/ListingDetailsScreen";
 import PhoneLoginScreen from "../screens/auth/PhoneLoginScreen";
 import OtpVerificationScreen from "../screens/auth/OtpVerificationScreen";
 import MapSearchScreen from "../screens/search/MapSearchScreen";
-
+import InfoScreen from "../screens/information/InfoScreen";
 // --------------------------------------------------
 // LISTING ACTION TYPE
 // --------------------------------------------------
 
-export type ListingAction =
-  | "INTERESTED"
-  | "CALL"
-  | "WHATSAPP"
-  | "VISIT";
+export type ListingAction = "INTERESTED" | "CALL" | "WHATSAPP" | "VISIT";
 
 export type ContactType = "phone" | "whatsapp";
 
@@ -48,21 +40,28 @@ export type ContactType = "phone" | "whatsapp";
 
 export type MainTabParamList = {
   Home: undefined;
-  Search: {
-    query?: string;
-  } | undefined;
+  Search: undefined;
   Saved: undefined;
   Enquiries: undefined;
   Profile: undefined;
 };
 
 // --------------------------------------------------
+// constant for the bottom tab navigation
+export type InfoPage = "privacy" | "terms" | "support" | "about";
+
+// --------------------------------------------------
 // ROOT STACK NAVIGATION
 // --------------------------------------------------
 
 export type RootStackParamList = {
-  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
+  MainTabs:
+    | {
+        screen?: keyof MainTabParamList;
+      }
+    | undefined;
 
+  // PG Details
   ListingDetails: {
     listingId: string;
     pendingAction?: ListingAction;
@@ -70,6 +69,9 @@ export type RootStackParamList = {
     contactType?: ContactType;
   };
 
+  //content
+
+  // Map Search
   MapSearch: {
     locality?: string;
     sharing?: string;
@@ -78,6 +80,7 @@ export type RootStackParamList = {
     accommodationType?: string;
   };
 
+  // Phone Login
   PhoneLogin:
     | {
         listingId?: string;
@@ -87,12 +90,29 @@ export type RootStackParamList = {
       }
     | undefined;
 
+  // OTP Verification
   OtpVerification: {
     phone: string;
     listingId?: string;
     pendingAction?: ListingAction;
     preferredVisitAt?: string;
     contactType?: ContactType;
+  };
+  // INFORMATION SCREENS
+  PrivacySafety: {
+    page: "privacy";
+  };
+
+  TermsPrivacy: {
+    page: "terms";
+  };
+
+  HelpSupport: {
+    page: "support";
+  };
+
+  AboutBedNear: {
+    page: "about";
   };
 };
 
@@ -147,39 +167,37 @@ function MainTabs() {
         },
       }}
     >
+      {/* HOME */}
       <Tab.Screen
         name="Home"
         component={HomeScreen}
         options={{
           tabBarLabel: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <Home color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
 
+      {/* SEARCH */}
       <Tab.Screen
         name="Search"
         component={SearchScreen}
         options={{
           tabBarLabel: "Search",
-          tabBarIcon: ({ color, size }) => (
-            <Search color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <Search color={color} size={size} />,
         }}
       />
 
+      {/* SAVED PGs */}
       <Tab.Screen
         name="Saved"
         component={FavouritesScreen}
         options={{
           tabBarLabel: "Saved",
-          tabBarIcon: ({ color, size }) => (
-            <Heart color={color} size={size} />
-          ),
+          tabBarIcon: ({ color, size }) => <Heart color={color} size={size} />,
         }}
       />
 
+      {/* ENQUIRIES */}
       <Tab.Screen
         name="Enquiries"
         component={EnquiriesScreen}
@@ -191,6 +209,7 @@ function MainTabs() {
         }}
       />
 
+      {/* PROFILE */}
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
@@ -213,7 +232,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName="PhoneLogin"
+        initialRouteName="MainTabs"
         screenOptions={{
           headerTintColor: colors.primary,
 
@@ -230,34 +249,12 @@ export default function AppNavigator() {
           },
         }}
       >
-        {/* PHONE LOGIN - FIRST SCREEN */}
-        <Stack.Screen
-          name="PhoneLogin"
-          component={PhoneLoginScreen}
-          options={{
-            headerShown: false,
-            animation: "fade",
-            gestureEnabled: false,
-          }}
-        />
-
-        {/* OTP VERIFICATION */}
-        <Stack.Screen
-          name="OtpVerification"
-          component={OtpVerificationScreen}
-          options={{
-            title: "Verify mobile number",
-            headerBackTitle: "Back",
-          }}
-        />
-
         {/* MAIN APPLICATION */}
         <Stack.Screen
           name="MainTabs"
           component={MainTabs}
           options={{
             headerShown: false,
-            gestureEnabled: false,
           }}
         />
 
@@ -276,6 +273,63 @@ export default function AppNavigator() {
           component={MapSearchScreen}
           options={{
             title: "PGs on Map",
+            headerShown: false,
+          }}
+        />
+
+        {/* PHONE LOGIN */}
+        <Stack.Screen
+          name="PhoneLogin"
+          component={PhoneLoginScreen}
+          options={{
+            headerShown: false,
+            animation: "fade",
+          }}
+        />
+
+        {/* OTP VERIFICATION */}
+        <Stack.Screen
+          name="OtpVerification"
+          component={OtpVerificationScreen}
+          options={{
+            title: "Verify mobile number",
+          }}
+        />
+        {/* INFORMATION SCREENS */}
+        {/* INFORMATION SCREENS */}
+
+        <Stack.Screen
+          name="PrivacySafety"
+          component={InfoScreen}
+          initialParams={{ page: "privacy" }}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="TermsPrivacy"
+          component={InfoScreen}
+          initialParams={{ page: "terms" }}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="HelpSupport"
+          component={InfoScreen}
+          initialParams={{ page: "support" }}
+          options={{
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="AboutBedNear"
+          component={InfoScreen}
+          initialParams={{ page: "about" }}
+          options={{
             headerShown: false,
           }}
         />

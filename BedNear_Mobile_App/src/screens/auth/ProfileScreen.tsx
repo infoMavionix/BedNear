@@ -1,5 +1,4 @@
-
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -8,9 +7,9 @@ import {
   Text,
   TextInput,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import * as SecureStore from 'expo-secure-store';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as SecureStore from "expo-secure-store";
 import {
   UserRound,
   ShieldCheck,
@@ -31,13 +30,13 @@ import {
   Save,
   X,
   LockKeyhole,
-} from 'lucide-react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+} from "lucide-react-native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
-import { RootStackParamList } from '../../navigation/AppNavigator';
-import { api } from '../../services/api';
-import { styles } from './ProfileScreen.styles';
+import { RootStackParamList } from "../../navigation/AppNavigator";
+import { api } from "../../services/api";
+import { styles } from "./ProfileScreen.styles";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -95,8 +94,8 @@ const ProfileScreen = () => {
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -104,9 +103,7 @@ const ProfileScreen = () => {
     setLoading(true);
 
     try {
-      const token = await SecureStore.getItemAsync(
-        'bednear_access_token'
-      );
+      const token = await SecureStore.getItemAsync("bednear_access_token");
 
       if (!token) {
         setUser(null);
@@ -115,30 +112,30 @@ const ProfileScreen = () => {
         return;
       }
 
-      const response = await api.get('/profile');
+      const response = await api.get("/profile");
 
       const profile: ProfileUser = response.data.user;
 
       setUser(profile);
-      setName(profile.name || '');
-      setPhone(profile.phone || '');
+      setName(profile.name || "");
+      setPhone(profile.phone || "");
       setIsLoggedIn(true);
     } catch (error: any) {
       console.error(
-        '[BedNear] Profile loading failed:',
-        error?.response?.data || error?.message
+        "[BedNear] Profile loading failed:",
+        error?.response?.data || error?.message,
       );
 
       if (error?.response?.status === 401) {
-        await SecureStore.deleteItemAsync('bednear_access_token');
+        await SecureStore.deleteItemAsync("bednear_access_token");
         setUser(null);
         setIsLoggedIn(false);
         setIsEditing(false);
       } else {
         Alert.alert(
-          'Unable to load profile',
+          "Unable to load profile",
           error?.response?.data?.message ||
-            'Please check your internet connection and try again.'
+            "Please check your internet connection and try again.",
         );
       }
     } finally {
@@ -149,24 +146,24 @@ const ProfileScreen = () => {
   useFocusEffect(
     useCallback(() => {
       loadProfile();
-    }, [loadProfile])
+    }, [loadProfile]),
   );
 
   const handleSignIn = () => {
-    navigation.navigate('PhoneLogin', undefined);
+    navigation.navigate("PhoneLogin", undefined);
   };
 
   const handleEdit = () => {
     if (!user) return;
 
-    setName(user.name || '');
-    setPhone(user.phone || '');
+    setName(user.name || "");
+    setPhone(user.phone || "");
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
-    setName(user?.name || '');
-    setPhone(user?.phone || '');
+    setName(user?.name || "");
+    setPhone(user?.phone || "");
     setIsEditing(false);
   };
 
@@ -175,19 +172,22 @@ const ProfileScreen = () => {
     const trimmedPhone = phone.trim();
 
     if (trimmedName.length < 2) {
-      Alert.alert('Invalid name', 'Please enter at least 2 characters.');
+      Alert.alert("Invalid name", "Please enter at least 2 characters.");
       return;
     }
 
     if (trimmedPhone && !/^[0-9+\-\s()]{7,20}$/.test(trimmedPhone)) {
-      Alert.alert('Invalid mobile number', 'Please enter a valid mobile number.');
+      Alert.alert(
+        "Invalid mobile number",
+        "Please enter a valid mobile number.",
+      );
       return;
     }
 
     setSaving(true);
 
     try {
-      const response = await api.patch('/profile', {
+      const response = await api.patch("/profile", {
         name: trimmedName,
         phone: trimmedPhone || null,
       });
@@ -195,46 +195,42 @@ const ProfileScreen = () => {
       const updatedUser: ProfileUser = response.data.user;
 
       setUser(updatedUser);
-      setName(updatedUser.name || '');
-      setPhone(updatedUser.phone || '');
+      setName(updatedUser.name || "");
+      setPhone(updatedUser.phone || "");
       setIsEditing(false);
 
       Alert.alert(
-        'Profile updated',
-        'Your profile information has been saved successfully.'
+        "Profile updated",
+        "Your profile information has been saved successfully.",
       );
     } catch (error: any) {
       console.error(
-        '[BedNear] Profile update failed:',
-        error?.response?.data || error?.message
+        "[BedNear] Profile update failed:",
+        error?.response?.data || error?.message,
       );
 
       Alert.alert(
-        'Update failed',
+        "Update failed",
         error?.response?.data?.message ||
-          'Unable to update your profile. Please try again.'
+          "Unable to update your profile. Please try again.",
       );
     } finally {
       setSaving(false);
     }
   };
 
-  
-const handleLogout = () => {
-  Alert.alert(
-    'Logout',
-    'Are you sure you want to log out of BedNear?',
-    [
+  const handleLogout = () => {
+    Alert.alert("Logout", "Are you sure you want to log out of BedNear?", [
       {
-        text: 'Cancel',
-        style: 'cancel',
+        text: "Cancel",
+        style: "cancel",
       },
       {
-        text: 'Logout',
-        style: 'destructive',
+        text: "Logout",
+        style: "destructive",
         onPress: async () => {
           try {
-            await SecureStore.deleteItemAsync('bednear_access_token');
+            await SecureStore.deleteItemAsync("bednear_access_token");
 
             setUser(null);
             setIsLoggedIn(false);
@@ -244,46 +240,42 @@ const handleLogout = () => {
               index: 0,
               routes: [
                 {
-                  name: 'PhoneLogin',
+                  name: "PhoneLogin",
                   params: undefined,
                 },
               ],
             });
           } catch (error) {
-            console.error('[BedNear] Logout failed:', error);
-            Alert.alert(
-              'Error',
-              'Unable to log out. Please try again.'
-            );
+            console.error("[BedNear] Logout failed:", error);
+            Alert.alert("Error", "Unable to log out. Please try again.");
           }
         },
       },
-    ]
-  );
-};
+    ]);
+  };
 
   const getInitial = () => {
-    return user?.name?.trim()?.charAt(0)?.toUpperCase() || 'U';
+    return user?.name?.trim()?.charAt(0)?.toUpperCase() || "U";
   };
 
   const formatDate = (date?: string) => {
-    if (!date) return 'Not available';
+    if (!date) return "Not available";
 
     const parsedDate = new Date(date);
 
     if (Number.isNaN(parsedDate.getTime())) {
-      return 'Not available';
+      return "Not available";
     }
 
-    return parsedDate.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
+    return parsedDate.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
     });
   };
 
   const displayRole = (role?: string) => {
-    if (!role) return 'Member';
+    if (!role) return "Member";
 
     return role.charAt(0) + role.slice(1).toLowerCase();
   };
@@ -374,9 +366,7 @@ const handleLogout = () => {
                 <Text style={styles.avatarInitial}>{getInitial()}</Text>
               </View>
 
-              <Text style={styles.name}>
-                {user.name || 'BedNear User'}
-              </Text>
+              <Text style={styles.name}>{user.name || "BedNear User"}</Text>
 
               <View style={styles.roleBadge}>
                 <ShieldCheck size={13} color="#6330AB" />
@@ -432,9 +422,7 @@ const handleLogout = () => {
             {/* PERSONAL INFORMATION */}
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={styles.sectionTitle}>
-                  Personal Information
-                </Text>
+                <Text style={styles.sectionTitle}>Personal Information</Text>
                 <Text style={styles.sectionSubtitle}>
                   Your registered account details
                 </Text>
@@ -464,7 +452,7 @@ const handleLogout = () => {
                     />
                   ) : (
                     <Text style={styles.infoValue}>
-                      {user.name || 'Not provided'}
+                      {user.name || "Not provided"}
                     </Text>
                   )}
                 </View>
@@ -480,7 +468,7 @@ const handleLogout = () => {
                 <View style={styles.infoText}>
                   <Text style={styles.infoLabel}>Email Address</Text>
                   <Text style={styles.infoValue}>
-                    {user.email || 'Not provided'}
+                    {user.email || "Not provided"}
                   </Text>
                   <Text style={styles.readOnlyLabel}>Registered email</Text>
                 </View>
@@ -507,7 +495,7 @@ const handleLogout = () => {
                     />
                   ) : (
                     <Text style={styles.infoValue}>
-                      {user.phone || 'Not provided'}
+                      {user.phone || "Not provided"}
                     </Text>
                   )}
                 </View>
@@ -522,9 +510,7 @@ const handleLogout = () => {
 
                 <View style={styles.infoText}>
                   <Text style={styles.infoLabel}>Account Type</Text>
-                  <Text style={styles.infoValue}>
-                    {displayRole(user.role)}
-                  </Text>
+                  <Text style={styles.infoValue}>{displayRole(user.role)}</Text>
                 </View>
               </View>
 
@@ -567,8 +553,8 @@ const handleLogout = () => {
                     subtitle="Your privacy and account security"
                     onPress={() =>
                       showInfo(
-                        'Privacy & Safety',
-                        'Your account information is managed securely by BedNear.'
+                        "Privacy & Safety",
+                        "Your account information is managed securely by BedNear.",
                       )
                     }
                   />
@@ -579,8 +565,8 @@ const handleLogout = () => {
                     subtitle="Manage your notification preferences"
                     onPress={() =>
                       showInfo(
-                        'Notifications',
-                        'Notification settings will be available soon.'
+                        "Notifications",
+                        "Notification settings will be available soon.",
                       )
                     }
                     last
@@ -607,8 +593,8 @@ const handleLogout = () => {
                     subtitle="Get assistance with BedNear"
                     onPress={() =>
                       showInfo(
-                        'Help & Support',
-                        'Please contact the BedNear support team for assistance.'
+                        "Help & Support",
+                        "Please contact the BedNear support team for assistance.",
                       )
                     }
                   />
@@ -619,8 +605,8 @@ const handleLogout = () => {
                     subtitle="Read our terms and policies"
                     onPress={() =>
                       showInfo(
-                        'Terms & Conditions',
-                        'Terms and conditions will be available soon.'
+                        "Terms & Conditions",
+                        "Terms and conditions will be available soon.",
                       )
                     }
                   />
@@ -631,8 +617,8 @@ const handleLogout = () => {
                     subtitle="Find your bed. Find your place."
                     onPress={() =>
                       showInfo(
-                        'About BedNear',
-                        'BedNear helps you discover PG accommodations and find your place.'
+                        "About BedNear",
+                        "BedNear helps you discover PG accommodations and find your place.",
                       )
                     }
                     last
@@ -677,7 +663,7 @@ const handleLogout = () => {
                 title="Saved PGs"
                 subtitle="View your favourite accommodations"
                 onPress={() =>
-                  showInfo('Saved PGs', 'Sign in to access your saved PGs.')
+                  showInfo("Saved PGs", "Sign in to access your saved PGs.")
                 }
               />
 
@@ -686,7 +672,7 @@ const handleLogout = () => {
                 title="My Enquiries"
                 subtitle="Track your PG enquiries"
                 onPress={() =>
-                  showInfo('My Enquiries', 'Sign in to view your enquiries.')
+                  showInfo("My Enquiries", "Sign in to view your enquiries.")
                 }
               />
 
@@ -696,8 +682,8 @@ const handleLogout = () => {
                 subtitle="Find your recently viewed PGs"
                 onPress={() =>
                   showInfo(
-                    'Recently Viewed',
-                    'Your recently viewed PGs will appear here.'
+                    "Recently Viewed",
+                    "Your recently viewed PGs will appear here.",
                   )
                 }
               />
@@ -708,8 +694,8 @@ const handleLogout = () => {
                 subtitle="Manage your accommodation preferences"
                 onPress={() =>
                   showInfo(
-                    'My Preferences',
-                    'Sign in to manage your preferences.'
+                    "My Preferences",
+                    "Sign in to manage your preferences.",
                   )
                 }
                 last
@@ -736,8 +722,8 @@ const handleLogout = () => {
                 subtitle="Manage your notifications"
                 onPress={() =>
                   showInfo(
-                    'Notifications',
-                    'Notification settings will be available soon.'
+                    "Notifications",
+                    "Notification settings will be available soon.",
                   )
                 }
               />
@@ -747,10 +733,9 @@ const handleLogout = () => {
                 title="Privacy & Safety"
                 subtitle="Your privacy matters to us"
                 onPress={() =>
-                  showInfo(
-                    'Privacy & Safety',
-                    'Your privacy and security are important to us.'
-                  )
+                  navigation.navigate("PrivacySafety", {
+                    page: "privacy",
+                  })
                 }
               />
 
@@ -758,36 +743,27 @@ const handleLogout = () => {
                 icon={<FileText size={20} color="#6330AB" />}
                 title="Terms & Privacy"
                 subtitle="Read our terms and policies"
-                onPress={() =>
-                  showInfo(
-                    'Terms & Privacy',
-                    'Our policies will be available soon.'
-                  )
-                }
+                onPress={() => navigation.navigate("TermsPrivacy", {
+  page: "terms",
+})}
               />
 
               <MenuRow
                 icon={<HelpCircle size={20} color="#E87832" />}
                 title="Help & Support"
                 subtitle="We are happy to help"
-                onPress={() =>
-                  showInfo(
-                    'Help & Support',
-                    'Please contact the BedNear support team.'
-                  )
-                }
+               onPress={() => navigation.navigate("HelpSupport", {
+  page: "support",
+})}
               />
 
               <MenuRow
                 icon={<Info size={20} color="#6330AB" />}
                 title="About BedNear"
                 subtitle="Find your bed. Find your place."
-                onPress={() =>
-                  showInfo(
-                    'About BedNear',
-                    'BedNear helps you discover PG accommodations and find your place.'
-                  )
-                }
+                onPress={() => navigation.navigate("AboutBedNear", {
+  page: "about",
+})}
                 last
               />
             </View>
