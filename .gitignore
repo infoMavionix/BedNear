@@ -4,9 +4,8 @@ node_modules/
 
 # Expo
 .expo/
-web-build/
 dist/
-coverage/
+web-build/
 
 # Environment variables and secrets
 .env
@@ -18,6 +17,7 @@ private-uploads/
 
 # Build output
 build/
+coverage/
 
 # Android generated files
 **/android/.gradle/
