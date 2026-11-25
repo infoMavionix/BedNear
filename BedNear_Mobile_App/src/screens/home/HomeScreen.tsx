@@ -214,10 +214,24 @@ export default function HomeScreen() {
     }
   }
 
-  function openSearch() {
+  function openSearch(category?: string) {
+    const params =
+      category === 'boys'
+        ? { gender: 'Men' }
+        : category === 'girls'
+          ? { gender: 'Women' }
+          : category === 'budget'
+            ? { maxRent: 10000 }
+            : category === 'nearby'
+              ? { locality: locationName || undefined }
+              : {};
+
     navigation.navigate(
       'MainTabs',
-      { screen: 'Search' } as never
+      {
+        screen: 'Search',
+        params,
+      } as never
     );
   }
 
@@ -372,7 +386,7 @@ export default function HomeScreen() {
                     styles.categoryCard,
                     pressed && styles.pressedCard,
                   ]}
-                  onPress={openSearch}
+                  onPress={() => openSearch(category.id)}
                 >
                   <View
                     style={[

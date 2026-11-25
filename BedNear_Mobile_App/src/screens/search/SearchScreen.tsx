@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 
 import { useQuery } from '@tanstack/react-query';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
@@ -77,15 +77,21 @@ export default function SearchScreen() {
     useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const insets = useSafeAreaInsets();
+  const route = useRoute<any>();
+  const initialParams = route.params ?? {};
 
-  const [locality, setLocality] = React.useState('');
-  const [rent, setRent] = React.useState('10000');
+  const [locality, setLocality] = React.useState(
+    initialParams.locality ?? ''
+  );
+  const [rent, setRent] = React.useState(
+    String(initialParams.maxRent ?? 10000)
+  );
 
   const [sharing, setSharing] =
     React.useState<SharingOption>('Any');
 
   const [gender, setGender] =
-    React.useState<GenderPreference>('Any');
+    React.useState<GenderPreference>(initialParams.gender ?? 'Any');
 
   const [accommodationType, setAccommodationType] =
     React.useState<AccommodationType>('Any');
@@ -99,7 +105,22 @@ export default function SearchScreen() {
   const [viewMode, setViewMode] =
     React.useState<ViewMode>('list');
 
-  const [showFilters, setShowFilters] = React.useState(true);
+  const [showFilters, setShowFilters] = React.useState(false);
+
+  // Home quick categories can update params while this tab remains mounted.
+  React.useEffect(() => {
+    if (initialParams.gender) setGender(initialParams.gender);
+    if (initialParams.maxRent !== undefined) {
+      setRent(String(initialParams.maxRent));
+    }
+    if (initialParams.locality !== undefined) {
+      setLocality(initialParams.locality);
+    }
+  }, [
+    initialParams.gender,
+    initialParams.maxRent,
+    initialParams.locality,
+  ]);
 
   const filters: ListingFilters = {
     locality: locality.trim() || undefined,
@@ -141,7 +162,7 @@ export default function SearchScreen() {
     setAc(false);
     setWifi(false);
     setViewMode('list');
-    setShowFilters(true);
+    setShowFilters(false);
   }
 
   function openMap() {
@@ -206,6 +227,45 @@ export default function SearchScreen() {
         />
       </View>
 
+      {/* QUICK PG TYPE FILTER */}
+      <View style={styles.filterGroup}>
+        <Text style={styles.label}>Looking for</Text>
+        <View style={styles.chips}>
+          {genderOptions.map(option => (
+            <FilterChip
+              key={option}
+              label={
+                option === 'Any'
+                  ? 'All PGs'
+                  : option === 'Men'
+                    ? 'Boys PG'
+                    : 'Girls PG'
+              }
+              selected={gender === option}
+              onPress={() => setGender(option)}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* QUICK BUDGET FILTER */}
+      <View style={styles.filterGroup}>
+        <Text style={styles.label}>Monthly budget</Text>
+        <View style={styles.rentInputWrapper}>
+          <Text style={styles.currencySymbol}>₹</Text>
+          <TextInput
+            value={rent}
+            onChangeText={value => setRent(value.replace(/[^0-9]/g, ''))}
+            keyboardType="number-pad"
+            placeholder="Maximum monthly rent"
+            placeholderTextColor="#A69BAE"
+            style={styles.input}
+            accessibilityLabel="Maximum monthly rent"
+          />
+          <Text style={styles.perMonth}>/ month</Text>
+        </View>
+      </View>
+
       {/* LIST / MAP */}
       <View style={styles.viewToggle}>
         <Pressable
@@ -257,7 +317,7 @@ export default function SearchScreen() {
               Refine your search
             </Text>
             <Text style={styles.sectionSubtitle}>
-              Choose what matters to you
+              Budget, sharing, food & amenities
             </Text>
           </View>
         </View>
@@ -282,39 +342,6 @@ export default function SearchScreen() {
       {/* FILTER PANEL */}
       {showFilters && (
         <View style={styles.panel}>
-          {/* RENT */}
-          <View style={styles.filterGroup}>
-            <View style={styles.labelRow}>
-              <View style={styles.labelIcon}>
-                <Wallet size={16} color="#E87832" />
-              </View>
-
-              <Text style={styles.label}>
-                Maximum monthly rent
-              </Text>
-            </View>
-
-            <View style={styles.rentInputWrapper}>
-              <Text style={styles.currencySymbol}>₹</Text>
-
-              <TextInput
-                value={rent}
-                onChangeText={value =>
-                  setRent(value.replace(/[^0-9]/g, ''))
-                }
-                keyboardType="number-pad"
-                placeholder="Enter your budget"
-                placeholderTextColor="#A69BAE"
-                style={styles.input}
-                accessibilityLabel="Maximum monthly rent"
-              />
-
-              <Text style={styles.perMonth}>/ month</Text>
-            </View>
-          </View>
-
-          <View style={styles.separator} />
-
           {/* SHARING */}
           <View style={styles.filterGroup}>
             <Text style={styles.label}>
@@ -352,26 +379,6 @@ export default function SearchScreen() {
           </View>
 
           <View style={styles.separator} />
-
-          {/* GENDER */}
-          <View style={styles.filterGroup}>
-            <Text style={styles.label}>
-              PG preference
-            </Text>
-
-            <View style={styles.chips}>
-              {genderOptions.map(option => (
-                <FilterChip
-                  key={option}
-                  label={
-                    option === 'Any' ? 'Any preference' : option
-                  }
-                  selected={gender === option}
-                  onPress={() => setGender(option)}
-                />
-              ))}
-            </View>
-          </View>
 
           <View style={styles.separator} />
 

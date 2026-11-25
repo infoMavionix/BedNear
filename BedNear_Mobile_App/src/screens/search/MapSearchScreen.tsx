@@ -1,16 +1,19 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 
 import MapView, { Marker, Region } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useQuery } from '@tanstack/react-query';
@@ -171,6 +174,9 @@ export default function MapSearchScreen() {
 
   // Selected listing
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mapLocality, setMapLocality] = useState(locality);
+  const [locationInput, setLocationInput] = useState(locality);
+  const mapRef = useRef<MapView | null>(null);
 
   // --------------------------------------------------
   // FETCH LISTINGS
@@ -179,7 +185,7 @@ export default function MapSearchScreen() {
   const query = useQuery({
     queryKey: [
       'map-listings',
-      locality,
+      mapLocality,
       sharing,
       maxRent,
       gender,
@@ -188,7 +194,7 @@ export default function MapSearchScreen() {
 
     queryFn: () =>
       getListings({
-        locality: locality.trim() || undefined,
+        locality: mapLocality.trim() || undefined,
         sharing,
         maxRent,
         gender,
@@ -197,6 +203,36 @@ export default function MapSearchScreen() {
 
     retry: 1,
   });
+
+  // Center the map on a locality supplied by SearchScreen.
+  useEffect(() => {
+    if (!locality.trim()) return;
+
+    let cancelled = false;
+
+    Location.geocodeAsync(locality.trim())
+      .then(matches => {
+        if (cancelled || !matches.length) return;
+
+        const { latitude, longitude } = matches[0];
+        mapRef.current?.animateToRegion(
+          {
+            latitude,
+            longitude,
+            latitudeDelta: 0.045,
+            longitudeDelta: 0.045,
+          },
+          650
+        );
+      })
+      .catch(error => {
+        console.warn('Could not center map on selected locality:', error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [locality]);
 
   // --------------------------------------------------
   // PROCESS LISTINGS
@@ -237,6 +273,46 @@ export default function MapSearchScreen() {
   }, [geoListings, selectedId]);
 
   // --------------------------------------------------
+  // SEARCH A LOCALITY / ADDRESS ON THE MAP
+  // --------------------------------------------------
+
+  async function searchMapLocation() {
+    const searchText = locationInput.trim();
+
+    if (!searchText) {
+      Alert.alert('Enter a location', 'Type a locality, area or address to search.');
+      return;
+    }
+
+    try {
+      const matches = await Location.geocodeAsync(searchText);
+
+      if (!matches.length) {
+        Alert.alert('Location not found', 'Try a nearby area or a more specific location.');
+        return;
+      }
+
+      const { latitude, longitude } = matches[0];
+      const nextRegion: Region = {
+        latitude,
+        longitude,
+        latitudeDelta: 0.045,
+        longitudeDelta: 0.045,
+      };
+
+      mapRef.current?.animateToRegion(nextRegion, 650);
+      setMapLocality(searchText);
+      setSelectedId(null);
+    } catch (error) {
+      console.warn('Map location search failed:', error);
+      Alert.alert(
+        'Could not search location',
+        'Please check your internet connection and try again.'
+      );
+    }
+  }
+
+  // --------------------------------------------------
   // OPEN LISTING DETAILS
   // --------------------------------------------------
 
@@ -256,6 +332,7 @@ export default function MapSearchScreen() {
       {/* MAP */}
 
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={BENGALURU_REGION}
         showsUserLocation={false}
@@ -295,21 +372,34 @@ export default function MapSearchScreen() {
           />
         </Pressable>
 
-        {/* LOCATION */}
+        {/* SEARCH LOCATION */}
 
         <View style={styles.locationPill}>
           <Ionicons
-            name="location-outline"
+            name="search-outline"
             size={18}
             color={colors.primary}
           />
 
-          <Text
-            numberOfLines={1}
-            style={styles.locationText}
+          <TextInput
+            value={locationInput}
+            onChangeText={setLocationInput}
+            onSubmitEditing={searchMapLocation}
+            placeholder="Search area or locality"
+            placeholderTextColor="#938A9B"
+            returnKeyType="search"
+            style={styles.locationInput}
+            accessibilityLabel="Search map location"
+          />
+
+          <Pressable
+            onPress={searchMapLocation}
+            accessibilityRole="button"
+            accessibilityLabel="Search this location"
+            style={styles.searchLocationButton}
           >
-            {locality.trim() || 'Bengaluru'}
-          </Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          </Pressable>
         </View>
 
         {/* REFRESH */}
@@ -346,7 +436,7 @@ export default function MapSearchScreen() {
         <Text style={styles.countText}>
           {query.isLoading
             ? 'Finding PGs...'
-            : `${geoListings.length} PGs on map`}
+            : `${geoListings.length} PGs${mapLocality ? ` near ${mapLocality}` : ' on map'}`}
         </Text>
       </View>
 
@@ -521,6 +611,25 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#211A2A',
     fontWeight: '700',
+  },
+
+  locationInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 44,
+    paddingVertical: 0,
+    color: '#211A2A',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  searchLocationButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // COUNT
