@@ -151,3 +151,170 @@ export const changePassword = asyncHandler(
     });
   }
 );
+
+
+// --------------------------------------------------
+// SAVED PG / FAVORITES
+// --------------------------------------------------
+
+async function validateCandidate(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+      isActive: true,
+    },
+  });
+
+  if (!user || !user.isActive || user.role !== "CANDIDATE") {
+    return false;
+  }
+
+  return true;
+}
+
+// GET /api/v1/profile/favorites
+export const getMyFavorites = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Please log in again.",
+      });
+    }
+
+    if (!(await validateCandidate(userId))) {
+      return res.status(403).json({
+        message: "Only active candidates can access saved PGs.",
+      });
+    }
+
+    const favorites = await prisma.favorite.findMany({
+      where: {
+        userId,
+        listing: {
+          status: "PUBLISHED",
+        },
+      },
+      include: {
+        listing: {
+          include: {
+            images: {
+              orderBy: {
+                sortOrder: "asc",
+              },
+            },
+            amenities: {
+              include: {
+                amenity: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return res.status(200).json({
+      message: "Saved PGs fetched successfully.",
+      favorites,
+    });
+  }
+);
+
+// POST /api/v1/profile/favorites/:listingId
+export const saveFavorite = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Please log in again.",
+      });
+    }
+
+    if (!(await validateCandidate(userId))) {
+      return res.status(403).json({
+        message: "Only active candidates can save PGs.",
+      });
+    }
+
+    const listingId = z.string().min(1).parse(req.params.listingId);
+
+    const listing = await prisma.listing.findFirst({
+      where: {
+        id: listingId,
+        status: "PUBLISHED",
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!listing) {
+      return res.status(404).json({
+        message: "Published PG not found.",
+      });
+    }
+
+    const favorite = await prisma.favorite.upsert({
+      where: {
+        userId_listingId: {
+          userId,
+          listingId,
+        },
+      },
+      create: {
+        userId,
+        listingId,
+      },
+      update: {},
+      include: {
+        listing: true,
+      },
+    });
+
+    return res.status(200).json({
+      message: "PG saved successfully.",
+      isSaved: true,
+      favorite,
+    });
+  }
+);
+
+// DELETE /api/v1/profile/favorites/:listingId
+export const removeFavorite = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Please log in again.",
+      });
+    }
+
+    if (!(await validateCandidate(userId))) {
+      return res.status(403).json({
+        message: "Only active candidates can remove saved PGs.",
+      });
+    }
+
+    const listingId = z.string().min(1).parse(req.params.listingId);
+
+    await prisma.favorite.deleteMany({
+      where: {
+        userId,
+        listingId,
+      },
+    });
+
+    return res.status(200).json({
+      message: "PG removed from saved listings.",
+      isSaved: false,
+    });
+  }
+);

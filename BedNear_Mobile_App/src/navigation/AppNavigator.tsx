@@ -29,7 +29,7 @@ import InfoScreen from "../screens/information/InfoScreen";
 // --------------------------------------------------
 // LISTING ACTION TYPE
 // --------------------------------------------------
-
+import NotificationSettingsScreen from "../screens/auth/NotificationSettingsScreen";
 export type ListingAction = "INTERESTED" | "CALL" | "WHATSAPP" | "VISIT";
 
 export type ContactType = "phone" | "whatsapp";
@@ -114,6 +114,7 @@ export type RootStackParamList = {
   AboutBedNear: {
     page: "about";
   };
+  NotificationSettings: undefined;
 };
 
 // --------------------------------------------------
@@ -333,6 +334,13 @@ export default function AppNavigator() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+  name="NotificationSettings"
+  component={NotificationSettingsScreen}
+  options={{
+    headerShown: false,
+  }}
+/>
       </Stack.Navigator>
     </NavigationContainer>
   );

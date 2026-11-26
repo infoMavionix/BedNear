@@ -36,6 +36,7 @@ import AvailabilityBadge from '../../components/AvailabilityBadge';
 import AppButton from '../../components/AppButton';
 import LoadingView from '../../components/LoadingView';
 import EmptyState from '../../components/EmptyState';
+import InterestedSuccessModal from '../../components/InterestedSuccessModal';
 import { styles } from './ListingDetailsScreen.styles';
 
 type ListingRoute = RouteProp<RootStackParamList, 'ListingDetails'>;
@@ -58,6 +59,8 @@ export default function ListingDetailsScreen() {
   const [visitDate, setVisitDate] = React.useState('');
   const [visitTime, setVisitTime] = React.useState('');
   const [actionLoading, setActionLoading] = React.useState(false);
+  const [interestedModalVisible, setInterestedModalVisible] =
+    React.useState(false);
 
   const query = useQuery({
     queryKey: ['listing', route.params.listingId],
@@ -180,10 +183,7 @@ export default function ListingDetailsScreen() {
       });
 
       if (action === 'INTERESTED') {
-        Alert.alert(
-          'Interest submitted',
-          'Your interest has been shared with the PG owner.',
-        );
+        setInterestedModalVisible(true);
       }
 
       if (action === 'VISIT') {
@@ -806,6 +806,16 @@ export default function ListingDetailsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* INTEREST SUBMITTED SUCCESS MODAL */}
+      <InterestedSuccessModal
+        visible={interestedModalVisible}
+        onClose={() => setInterestedModalVisible(false)}
+        onViewEnquiries={() => {
+          setInterestedModalVisible(false);
+          navigation.navigate('MainTabs', { screen: 'Enquiries' });
+        }}
+      />
 
       {/* BOOK A VISIT MODAL */}
       <Modal
